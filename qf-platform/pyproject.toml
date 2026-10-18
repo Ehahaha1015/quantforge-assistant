@@ -1,0 +1,50 @@
+[project]
+name = "qf-platform"
+version = "0.1.0"
+description = "Local multi-account simulation and real-time console for QuantForge"
+requires-python = ">=3.12"
+dependencies = [
+    "quantforge",
+    "qf-lab",
+    "cryptography>=46,<47",
+    "pillow>=12,<13",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+]
+
+[project.scripts]
+qf-platform = "qf_platform.server:main"
+qf-research = "qf_platform.research_cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+quantforge = { path = "../quantforge", editable = true }
+qf-lab = { path = "../qf-lab", editable = true }
+
+[tool.uv]
+constraint-dependencies = ["polars==1.44.2", "pydantic==2.13.5", "duckdb==1.5.5"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.7",
+    "mypy==2.3.1",
+    "httpx>=0.27,<1",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["qf_lab.*"]
+follow_untyped_imports = true

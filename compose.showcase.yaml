@@ -1,0 +1,56 @@
+name: quantforge-showcase
+
+services:
+  api:
+    image: quantforge-api:showcase
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+    command: ["python", "-m", "qf_platform.chart_demo", "--root", "/data", "--port", "4188", "--host", "0.0.0.0"]
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m
+    volumes:
+      - showcase-data:/data
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4188/api/health', timeout=3).read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    stop_grace_period: 20s
+    networks: [workbench]
+
+  web:
+    image: quantforge-web:showcase
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+    init: true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=16m
+      - /tmp:size=16m
+    ports: ["127.0.0.1:4182:8080"]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [frontend, workbench]
+
+volumes:
+  showcase-data:
+
+networks:
+  frontend: {}
+  workbench:
+    internal: true

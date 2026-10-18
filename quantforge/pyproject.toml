@@ -1,0 +1,36 @@
+[project]
+name = "quantforge"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "derphyyang", email = "3143448051@qq.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=46,<47",
+    "duckdb>=1.5.5",
+    "polars[pyarrow]>=1.44.2",
+    "pydantic>=2",
+    "tzdata>=2025.2 ; sys_platform == 'win32'",
+]
+
+[project.scripts]
+quantforge = "quantforge:main"
+
+[project.optional-dependencies]
+qlib = [
+    "pyqlib==0.9.7",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.7",
+]

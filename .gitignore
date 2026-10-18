@@ -1,0 +1,16 @@
+**/.venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/dist/
+**/*.tsbuildinfo
+local-smoke/
+local-tools/
+**/.env
+**/.env.*
+**/*.sqlite*
+**/*.db
+**/*.key
+**/*.pem

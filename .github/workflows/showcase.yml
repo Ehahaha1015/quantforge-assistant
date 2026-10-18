@@ -1,0 +1,40 @@
+name: Offline screenshot application
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      UV_PYTHON_DOWNLOADS: never
+      UV_CACHE_DIR: ${{ github.workspace }}/local-tools/cache/uv
+      npm_config_cache: ${{ github.workspace }}/local-tools/cache/npm
+      TEMP: ${{ github.workspace }}/local-tools/cache/temp
+      TMP: ${{ github.workspace }}/local-tools/cache/temp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Require exported workspace layout
+        run: test -f qf-platform/pyproject.toml && test -f quantforge/pyproject.toml && test -f qf-lab/pyproject.toml && test -f quantforge-ui/package.json
+      - name: Install locked dependencies
+        run: |
+          mkdir -p "$TEMP"
+          python -m pip install uv==0.12.9
+          uv sync --project qf-platform --frozen
+          npm ci --prefix quantforge-ui
+      - name: Run offline checks
+        run: python governance-tools/ci_showcase.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-verification
+          path: local-smoke/ci-*

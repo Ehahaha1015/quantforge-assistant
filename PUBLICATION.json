@@ -1,0 +1,16 @@
+{
+  "schema_version": "github-source-publication-v1",
+  "at": "2026-10-18T14:14:15.758871+00:00",
+  "repository": "Ehahaha1015/quantforge-assistant",
+  "branch": "main",
+  "history": "NEW_ROOT_COMMIT_NO_PRIVATE_REPOSITORY_HISTORY",
+  "source_commits": {
+    ".": "030c478928eef450e12fff882db741cc0bfb574a",
+    "quantforge": "00fa8961ccb24378ab0088d70e721186857121ca",
+    "qf-lab": "ee573202ea319d1c2d9ec88fa310471c9a0b0519",
+    "qf-platform": "7bd954e5252a5a83a0e2dd303688d65cbc44c973",
+    "quantforge-ui": "c15a7c9f7b81df74035f1178545aaa796c217405"
+  },
+  "archive_sha256": "f8851cd14a6797460ff34f58c4451934ceaad50fe6ae421e60b28beb6321d498",
+  "source_scope": "COMPLETE_OFFLINE_SHOWCASE_NO_ENVIRONMENTS_RUNTIME_RECORDS_OR_ACCOUNT_SECRETS"
+}

@@ -1,0 +1,23 @@
+FROM public.ecr.aws/docker/library/python:3.12-slim-bookworm AS builder
+RUN pip install --no-cache-dir uv==0.12.9
+WORKDIR /app
+COPY quantforge/pyproject.toml quantforge/README.md ./quantforge/
+COPY quantforge/src ./quantforge/src
+COPY qf-lab/pyproject.toml qf-lab/README.md ./qf-lab/
+COPY qf-lab/src ./qf-lab/src
+COPY qf-platform/pyproject.toml qf-platform/uv.lock qf-platform/README.md ./qf-platform/
+COPY qf-platform/src ./qf-platform/src
+WORKDIR /app/qf-platform
+RUN --mount=type=cache,target=/root/.cache/uv \
+    UV_PYTHON_DOWNLOADS=never uv sync --frozen --no-dev
+
+FROM public.ecr.aws/docker/library/python:3.12-slim-bookworm
+RUN groupadd --gid 10001 quantforge && useradd --uid 10001 --gid 10001 --no-create-home quantforge \
+    && mkdir /data && chown 10001:10001 /data
+COPY --from=builder /app /app
+ENV PATH="/app/qf-platform/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app/qf-platform
+USER 10001:10001
+EXPOSE 4188
+CMD ["python", "-m", "qf_platform.server", "--root", "/data", "--port", "4188", "--host", "0.0.0.0", "--chart-assistant", "--chart-only"]
