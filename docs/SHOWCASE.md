@@ -42,7 +42,8 @@ python governance-tools/ci_showcase.py --install
 
 脚本在安装依赖之前将缓存/临时文件放在工作区`local-tools/cache`，其验证目录需未存在，重复运行使用新的工作区
 或分别指定新评测输出目录。依赖已安装时可不传`--install`。
-检查包括Platform完整测试、Ruff/mypy、UI类型/测试/构建、25条输出契约评测、
+CI在Windows运行Platform完整测试（包括DPAPI），Linux运行当前截图/个人助手/QQ/worker测试。
+两边均运行Ruff/mypy、UI类型/测试/构建、25条输出契约评测、
 7个真实进程中断点及100次同幂等键HTTP提交。
 运行验证前需有Git代码上下文；ZIP解压后先执行`git init`、`git add .`和`git commit`提交源码，或使用
 将导出内容提交到新仓库后的CI。不要在没有Git上下文时伪造一个历史提交号。

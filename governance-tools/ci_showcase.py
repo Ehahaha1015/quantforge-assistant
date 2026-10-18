@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -44,10 +45,48 @@ def main() -> None:
             env=environment,
             check=True,
         )
+    tests = [str(python), "-m", "pytest", "-q"]
+    scope = "WINDOWS_FULL_PLATFORM_INCLUDING_DPAPI"
+    selected: list[str] = []
+    if os.name != "nt":
+        scope = "LINUX_ACTIVE_SCREENSHOT_PERSONAL_QQ_AND_WORKER"
+        patterns = (
+            "test_chart*.py",
+            "test_daily*.py",
+            "test_history_cache.py",
+            "test_personal*.py",
+            "test_qq*.py",
+            "test_worker.py",
+            "test_supervisor.py",
+        )
+        directory = ROOT / "qf-platform"
+        selected = sorted(
+            {
+                p.relative_to(directory).as_posix()
+                for pattern in patterns
+                for p in (directory / "tests").glob(pattern)
+            }
+        )
+        if not selected:
+            raise ValueError("Portable product test scope must not be empty")
+        tests.extend(selected)
+    evidence = ROOT / "local-smoke"
+    evidence.mkdir(exist_ok=True)
+    with (evidence / "ci-platform-coverage.json").open("x", encoding="utf-8") as stream:
+        json.dump(
+            {
+                "scope": scope,
+                "test_paths": selected or ["ALL_PLATFORM_TESTS"],
+                "windows_only_boundary": "Legacy protected bindings use Windows DPAPI; full assertions run on windows-latest.",
+            },
+            stream,
+            indent=2,
+        )
+    print("CI coverage: " + scope, flush=True)
     commands = [
         ("qf-platform", [str(python), "-m", "ruff", "check", "."]),
         ("qf-platform", [str(python), "-m", "mypy", "src"]),
-        ("qf-platform", [str(python), "-m", "pytest", "-q"]),
+        ("qf-platform", tests),
         ("quantforge-ui", [npm, "run", "typecheck"]),
         ("quantforge-ui", [npm, "test"]),
         ("quantforge-ui", [npm, "run", "build"]),

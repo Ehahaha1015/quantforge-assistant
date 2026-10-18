@@ -7,7 +7,15 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 25
     env:
       UV_PYTHON_DOWNLOADS: never
@@ -27,7 +35,7 @@ jobs:
         run: test -f qf-platform/pyproject.toml && test -f quantforge/pyproject.toml && test -f qf-lab/pyproject.toml && test -f quantforge-ui/package.json
       - name: Install locked dependencies
         run: |
-          mkdir -p "$TEMP"
+          python -c "import os; from pathlib import Path; Path(os.environ['TEMP']).mkdir(parents=True, exist_ok=True)"
           python -m pip install uv==0.12.9
           uv sync --project qf-platform --frozen
           npm ci --prefix quantforge-ui
@@ -36,5 +44,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: offline-verification
+          name: offline-verification-${{ matrix.os }}
           path: local-smoke/ci-*
