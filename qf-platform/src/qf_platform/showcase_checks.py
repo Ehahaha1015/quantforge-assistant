@@ -110,7 +110,10 @@ def benchmark(root: Path) -> dict[str, Any]:
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
-    creation = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    if sys.platform == "win32":
+        creation = subprocess.CREATE_NO_WINDOW
+    else:
+        creation = 0
     with (root / "http-server.log").open("wb") as log:
         process = subprocess.Popen(
             [
