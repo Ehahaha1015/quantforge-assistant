@@ -1,7 +1,7 @@
 {
   "schema_version": "github-source-snapshot-v1",
   "source_commits": {
-    ".": "929d9e6c645fd784a93d5f583585bfe2906b7f1c",
+    ".": "43f6cf20cae284924c439cff6d7af0d215cfe566",
     "quantforge": "00fa8961ccb24378ab0088d70e721186857121ca",
     "qf-lab": "ee573202ea319d1c2d9ec88fa310471c9a0b0519",
     "qf-platform": "02a48cc2d84615d22bce0884780da0c22b82eaf4",
@@ -13,7 +13,7 @@
     ".gitattributes": "308a40fa1d89ae5ea4390b4c9b46a0108b09f171f07898f25d451fa0c69c4e9f",
     ".github/workflows/showcase.yml": "5c0dd86e5b3eeb1ff8c4acbf8bdb74f01f8df6a2c8f0e7fd6219c430e585aef3",
     ".gitignore": "ea66859fa30e1aff27b0f926aa60975f75e07c5727ea6c7350c9b82b1049555e",
-    "PUBLICATION.json": "eff06945fdad6ac0a65dfa7fc01e6cd29f6f3ff0943e5b4313b757b039d8d290",
+    "PUBLICATION.json": "c61dfaded1e4cc48fb025feed15eaa9057d3626f1c03c704a44fb57ca0a82e3a",
     "README.md": "bb4312bfa06e9bb58887919c6ec744d39a9e856705817768a9cdd7c19ad06342",
     "compose.showcase.yaml": "010ccdb0a6054c9a77cf5484cc3fb5d654daa9675a1ec6dd9b760398f40a6c7e",
     "deploy/docker/Dockerfile.api": "8c5c04a7ace36d6aab495ffc1e133ef15b84435674ecb242b02950091e3c1337",
@@ -664,6 +664,7 @@
     "quantforge/tests/validation/test_validation.py": "9a5499643a41d057ed2439b23412be5680241e6d655d1be6405b9ae1721d6320",
     "quantforge/uv.lock": "368310bd6b14d26a4f00a783a6a439c23efdec2c5a7901140672352cb98dc0d8",
     "run_showcase.ps1": "260c0904d6cfecafecd768d512fdf2bc5048fcea673349930ac1309d6f67e0f7",
-    "run_showcase.sh": "c06d2ab70d5f4fe6d22fa8c9b73da9b891c47dbe1037a7133f7ca00f26b714ea"
+    "run_showcase.sh": "c06d2ab70d5f4fe6d22fa8c9b73da9b891c47dbe1037a7133f7ca00f26b714ea",
+    "AGENTS.md": "8b1ff381d9dfd0a765661fc6cde1b7508b4bd83534a46ccdaa4041d266c878db"
   }
 }

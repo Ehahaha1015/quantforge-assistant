@@ -5,7 +5,7 @@
   "branch": "main",
   "history": "NEW_ROOT_COMMIT_NO_PRIVATE_REPOSITORY_HISTORY",
   "source_commits": {
-    ".": "929d9e6c645fd784a93d5f583585bfe2906b7f1c",
+    ".": "43f6cf20cae284924c439cff6d7af0d215cfe566",
     "quantforge": "00fa8961ccb24378ab0088d70e721186857121ca",
     "qf-lab": "ee573202ea319d1c2d9ec88fa310471c9a0b0519",
     "qf-platform": "02a48cc2d84615d22bce0884780da0c22b82eaf4",
@@ -13,6 +13,6 @@
   },
   "archive_sha256": "f8851cd14a6797460ff34f58c4451934ceaad50fe6ae421e60b28beb6321d498",
   "source_scope": "COMPLETE_OFFLINE_SHOWCASE_NO_ENVIRONMENTS_RUNTIME_RECORDS_OR_ACCOUNT_SECRETS",
-  "last_update": "Run the complete existing Platform suite including DPAPI on Windows, and active screenshot/personal/QQ/worker portability checks on Linux. Test assertions and secret protection are unchanged.",
+  "last_update": "Persist the owner instruction to push every completed and verified update to this GitHub repository.",
   "publication_root": "f4a677b80f72729666fcbff0250f728bfeedc80a"
 }
