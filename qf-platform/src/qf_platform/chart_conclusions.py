@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, cast
 
+from .chart_metadata import metadata as analysis_metadata
 from .chart_quality_gate import quality_blockers
 from .chart_reports import ChartReport, assess_alignment
 from .chart_timeframes import LABELS, horizon_text
@@ -32,7 +33,7 @@ def conclusion(snapshot: dict[str, Any]) -> dict[str, Any] | None:
         "core-chart-strategies-v4",
     }:
         return None
-    meta = snapshot["request"]
+    meta = analysis_metadata(snapshot)
     synthesis = algorithm.get("synthesis") or {}
     plan = algorithm.get("trade_plan") or {}
     report = snapshot.get("report")
@@ -110,8 +111,7 @@ def conclusion(snapshot: dict[str, Any]) -> dict[str, Any] | None:
                 "direction": "RANGE",
                 "trigger": "区间结构延续，且未形成独立证据组同向的持续突破确认。",
                 "interpretation": (
-                    "这是区间延续的条件性情景；"
-                    "证据不足或周期分歧本身不能证明将会横盘。"
+                    "这是区间延续的条件性情景；证据不足或周期分歧本身不能证明将会横盘。"
                 ),
                 "invalidation": "两组同向、风险与较长周期确认后重新判断。",
             },

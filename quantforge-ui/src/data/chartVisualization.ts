@@ -5,7 +5,7 @@ export type Candle = { at: string; label: string; open: string; high: string; lo
 export type Boundary = { step: number; upper: string; reference: string; lower: string }
 export type ChartVisualization = {
   schema_version: 'chart-visualization-v1'; job_id: string; snapshot_sha256: string
-  status: 'AVAILABLE' | 'BLOCKED' | 'UNAVAILABLE'; reason: string | null; symbol: string; timeframe: Timeframe
+  status: 'AVAILABLE' | 'BLOCKED' | 'UNAVAILABLE'; view_mode?: 'ALIGNED'|'BACKGROUND'; warnings?:string[]; reason: string | null; symbol: string; timeframe: Timeframe
   horizon_bars: number; direction: Direction; as_of: string | null; offline: boolean
   source_sha256: string | null; bars_sha256: string | null; candles: Candle[]; boundaries: Boundary[]
   levels: { reference: string; stop_reference: string; take_profit_reference: string; rule: string } | null
@@ -19,6 +19,7 @@ const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1e-8, Math.ab
 
 export function parseVisualization(v: unknown, id: string): ChartVisualization {
   if (!record(v) || v.schema_version !== 'chart-visualization-v1' || v.job_id !== id || !hash(v.snapshot_sha256) || v.model_calls !== 0 || v.market_fetches !== 0 || v.forecast_validated !== false || !['AVAILABLE', 'BLOCKED', 'UNAVAILABLE'].includes(String(v.status)) || !['BULLISH', 'RANGE', 'BEARISH', 'UNCLEAR'].includes(String(v.direction)) || !['60m', '1d', '1w'].includes(String(v.timeframe)) || !Number.isInteger(v.horizon_bars) || !({ '60m': [1, 4], '1d': [1, 5, 20], '1w': [1, 4] }[v.timeframe as Timeframe].includes(Number(v.horizon_bars))) || typeof v.symbol !== 'string' || typeof v.offline !== 'boolean' || typeof v.formula !== 'string' || typeof v.interpretation !== 'string' || !Array.isArray(v.candles) || !Array.isArray(v.boundaries)) throw new Error('图表身份或期限无法核验。')
+  if (v.view_mode != null && !['ALIGNED','BACKGROUND'].includes(String(v.view_mode)) || v.warnings != null && (!Array.isArray(v.warnings) || !v.warnings.every(x=>typeof x==='string')) || v.view_mode === 'BACKGROUND' && v.levels !== null) throw new Error('背景图不能携带精确买卖参考。')
   if (v.status !== 'AVAILABLE') {
     if (typeof v.reason !== 'string' || v.candles.length || v.boundaries.length || v.levels !== null || v.atr14 !== null || v.reference_close !== null) throw new Error('资料不足时不能展示价格图形。')
     return v as ChartVisualization
@@ -32,9 +33,9 @@ export function parseVisualization(v: unknown, id: string): ChartVisualization {
   return v as ChartVisualization
 }
 
-export async function readVisualization(id: string, signal?: AbortSignal): Promise<ChartVisualization> {
+export async function readVisualization(id: string, signal?: AbortSignal, preview = false): Promise<ChartVisualization> {
   const bounded = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
-  const response = await fetch(`${chartApi}/api/chart-analyses/${encodeURIComponent(id)}/visualization`, { signal: bounded })
+  const response = await fetch(`${chartApi}/api/chart-analyses/${encodeURIComponent(id)}/visualization${preview ? '?preview=true' : ''}`, { signal: bounded })
   if (!response.ok) throw new Error('归档图表暂不可用，请重新读取；不会重新调用模型。')
   return parseVisualization(await response.json(), id)
 }

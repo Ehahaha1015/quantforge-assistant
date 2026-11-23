@@ -32,6 +32,20 @@ it('offers real upload with unconfigured status and never presents a fabricated 
   expect(screen.getByLabelText('图中K线周期')).toHaveValue('1d')
 })
 
+it('defaults to image-only upload without asking users to retype visible metadata', async () => {
+  render(<ChartReports />)
+  await screen.findByText('报告服务在线')
+  expect(screen.getByLabelText('自动识别图中信息（推荐，无需填写代码与日期）')).toBeChecked()
+  fireEvent.change(screen.getByLabelText('上传股票走势图'), { target: { files: [new File(['fixture'], 'chart.png', { type: 'image/png' })] } })
+  const submit = screen.getByRole('button', { name: '保存截图，稍后生成' })
+  expect(submit).not.toBeDisabled()
+  fireEvent.click(submit)
+  await waitFor(() => expect(received.filter(r => r.options?.method === 'POST')).toHaveLength(1))
+  const write = received.find(r => r.options?.method === 'POST')!
+  expect(write.url).toMatch(/\/api\/chart-uploads$/)
+  expect(Object.keys(JSON.parse(String(write.options?.body))).sort()).toEqual(['image_base64', 'question'])
+})
+
 it('changes hourly/weekly horizons and clears holding counts across frequencies', async () => {
   render(<ChartReports />)
   await screen.findByText('报告服务在线')

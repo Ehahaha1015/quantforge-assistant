@@ -20,6 +20,12 @@ class StartCommand(BaseModel):
     action: Literal["start"]
 
 
+class ImageUploadCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    image_base64: str = Field(min_length=20, max_length=7_000_000)
+    question: str = Field(default="分析这张图的走势、依据与条件情景。", max_length=600)
+
+
 class ReviewCommand(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     action: Literal["review"]

@@ -29,6 +29,7 @@ from .chart_contracts import (
     AnalysisResponse,
     ConfigurationCommand,
     EventsResponse,
+    ImageUploadCommand,
     ReviewCommand,
     SettingsResponse,
     StartCommand,
@@ -176,6 +177,28 @@ def create_app(
     ) -> dict[str, Any]:
         return application.submit(command, idempotency_key)
 
+    @app.post(
+        "/api/chart-uploads",
+        response_model=AnalysisResponse,
+        response_model_exclude_unset=True,
+    )
+    def upload_image(
+        command: ImageUploadCommand, idempotency_key: str = Header(default="")
+    ) -> dict[str, Any]:
+        if demo:
+            raise PlatformError("DEMO_EXTERNAL_DATA_DISABLED")
+        return charts.create(
+            {
+                "input_mode": "AUTO",
+                "symbol": "待识别",
+                "period_start": "1970-01-01",
+                "period_end": "1970-01-01",
+                "image_base64": command.image_base64,
+                "question": command.question,
+            },
+            idempotency_key,
+        )
+
     @app.get(
         "/api/chart-analyses/{job_id}",
         response_model=AnalysisResponse,
@@ -228,8 +251,8 @@ def create_app(
     @app.get(
         "/api/chart-analyses/{job_id}/visualization", response_model=ChartVisualization
     )
-    def chart_visualization(job_id: str) -> ChartVisualization:
-        return visualization(charts.get(job_id), charts.market_data)
+    def chart_visualization(job_id: str, preview: bool = False) -> ChartVisualization:
+        return visualization(charts.get(job_id), charts.market_data, preview=preview)
 
     @app.post("/api/chart-analyses/{job_id}/question", response_model=ReportAnswer)
     def assistant_answer(job_id: str, command: QuestionCommand) -> ReportAnswer:

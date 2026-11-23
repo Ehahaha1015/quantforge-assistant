@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from quantforge.product.storage import local_root, writer_lock
 
 from . import chart_algorithms, chart_provider
+from .chart_metadata import metadata, resolve
 from .chart_reports import (
     STRATEGY_VERSION,
     ChartReport,
@@ -233,7 +234,14 @@ class ChartAnalysisService:
             return {
                 "schema_version": "chart-list-v1",
                 "items": [
-                    {key: value[key] for key in keys}
+                    {
+                        **{key: value[key] for key in keys},
+                        **(
+                            {"resolved_request": value["resolved_request"]}
+                            if value.get("resolved_request")
+                            else {}
+                        ),
+                    }
                     for value in [self._read(db, item) for item in ids]
                 ],
             }
@@ -407,7 +415,8 @@ class ChartAnalysisService:
                 return True
         # Public data retrieval is outside the SQLite transaction. The OS fence
         # still excludes competing workers; restarting this unpaid step is safe.
-        if value.get("algorithm_analysis") is None:
+        automatic = value["request"].get("input_mode") == "AUTO"
+        if value.get("algorithm_analysis") is None and not automatic:
             try:
                 with closing(self.connect()) as db:
                     initial_levels = self._position_reference(db, value["request"])
@@ -436,7 +445,7 @@ class ChartAnalysisService:
                 "schema": ChartReport.model_json_schema(),
                 "metadata": value["request"],
                 "deterministic_core_analysis": chart_provider.model_facts(
-                    value["algorithm_analysis"]
+                    value.get("algorithm_analysis")
                 ),
             }
             input_bound = len(canonical(prompt).encode()) + 4096 + 2048
@@ -476,14 +485,36 @@ class ChartAnalysisService:
         try:
             self.runtime.checkpoint("BEFORE_SEND")
             report, usage = self.runtime.analyze(
-                key, data, mime, value["request"], value["algorithm_analysis"]
+                key, data, mime, value["request"], value.get("algorithm_analysis")
             )
             self.runtime.checkpoint("AFTER_RESPONSE")
             failure_stage = "REPORT_FINALIZATION"
+            if automatic:
+                resolved, notes = resolve(value, report.model_dump(mode="json"))
+                value.update(resolved_request=resolved, metadata_notes=notes)
+                value["algorithm_analysis"] = (
+                    self.runtime.algorithm(
+                        resolved,
+                        self.market_data,
+                        initial_levels=None,
+                    )
+                    if resolved
+                    else {
+                        "status": "UNAVAILABLE",
+                        "reason": "图中元数据不足，保留图像情景。",
+                        "source": None,
+                        "strategies": [],
+                        "baseline": [],
+                        "schema_version": "core-chart-strategies-v4",
+                        "limitations": notes,
+                        "forecast_validated": False,
+                        "screenshot_identity_verified": False,
+                    }
+                )
             value.update(
                 status="SUCCEEDED",
                 report=report.model_dump(mode="json"),
-                image_alignment=assess_alignment(value["request"], report),
+                image_alignment=assess_alignment(metadata(value), report),
                 model_call={**call, **usage},
                 error=None,
             )
@@ -504,8 +535,8 @@ class ChartAnalysisService:
                 indicators = algorithm["synthesis"]["indicators"]
                 value["evaluation_target"] = freeze_target(
                     direction=combined["direction"],
-                    timeframe=value["request"]["timeframe"],
-                    horizon=horizon(value["request"]),
+                    timeframe=metadata(value)["timeframe"],
+                    horizon=horizon(metadata(value)),
                     origin=datetime.fromisoformat(
                         algorithm["source"]["last_timestamp"]
                     ),

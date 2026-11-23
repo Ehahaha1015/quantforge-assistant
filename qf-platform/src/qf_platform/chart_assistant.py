@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .chart_algorithms import symbol_code
 from .chart_conclusions import ACTION_NAMES, DIRECTION_NAMES, conclusion
+from .chart_metadata import metadata as analysis_metadata
 from .chart_quality_gate import quality_blockers
 from .storage import PlatformError, digest
 
@@ -96,7 +97,7 @@ def brief(snapshot: dict[str, Any]) -> ReportBrief:
     algorithm = snapshot.get("algorithm_analysis") or {}
     source = algorithm.get("source") or {}
     report = snapshot.get("report") or {}
-    meta = snapshot["request"]
+    meta = analysis_metadata(snapshot)
     entries: list[Evidence] = []
 
     def cite(path: str, label: str, kind: EvidenceKind = "COMPUTATION") -> str:
@@ -116,7 +117,13 @@ def brief(snapshot: dict[str, Any]) -> ReportBrief:
         )
         return key
 
-    meta_id = cite("/request", "用户确认信息（不是图像真值）", "METADATA")
+    meta_id = cite(
+        "/resolved_request" if snapshot.get("resolved_request") else "/request",
+        "自动识别信息（待核对）"
+        if snapshot.get("resolved_request")
+        else "用户确认信息（不是图像真值）",
+        "METADATA",
+    )
     report_id = (
         cite("/report", "模型图像识别（待核对）", "MODEL_OBSERVATION")
         if report
@@ -136,6 +143,11 @@ def brief(snapshot: dict[str, Any]) -> ReportBrief:
         state, label = "NEEDS_REVIEW", "先核对截图信息"
     else:
         state, label = "READY", "可解释归档证据 · 预测未验证"
+    if report.get("image_quality") in {"READABLE", "PARTIAL"}:
+        if state == "DATA_UNAVAILABLE":
+            label = "图像分析可用 · 行情信息待补充"
+        elif state == "NEEDS_REVIEW":
+            label = "图像分析可用 · 精确价位待核对"
     if state != "READY":
         missing.append(
             Claim(
@@ -255,7 +267,7 @@ def answer(snapshot: dict[str, Any], question: str) -> ReportAnswer:
     claims = view.supporting + view.opposing
     mentioned = set(re.findall(r"(?<!\d)\d{6}(?!\d)", question))
     expected_symbol = set(
-        re.findall(r"(?<!\d)\d{6}(?!\d)", snapshot["request"]["symbol"])
+        re.findall(r"(?<!\d)\d{6}(?!\d)", analysis_metadata(snapshot)["symbol"])
     )
     if mentioned and mentioned != expected_symbol:
         intent, status = "SCOPE", "OUT_OF_SCOPE"
@@ -371,7 +383,7 @@ def answer(snapshot: dict[str, Any], question: str) -> ReportAnswer:
 
 
 def compare(current: dict[str, Any], previous: dict[str, Any]) -> Comparison:
-    a, b = current["request"], previous["request"]
+    a, b = analysis_metadata(current), analysis_metadata(previous)
     if current["id"] == previous["id"] or any(
         (
             symbol_code(a["symbol"]) != symbol_code(b["symbol"]),

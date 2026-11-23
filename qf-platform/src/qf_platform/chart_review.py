@@ -13,6 +13,7 @@ from quantforge.strategies.chart_quality import is_session
 
 from . import chart_algorithms
 from .chart_conclusions import conclusion
+from .chart_metadata import metadata as analysis_metadata
 from .chart_timeframes import ZONE, cutoff_at
 from .storage import PlatformError, canonical, digest
 
@@ -49,7 +50,7 @@ def review(
         snapshot["status"] != "SUCCEEDED"
         or not original
         or original["status"] != "READY"
-        or snapshot["request"].get("adjustment") != "RAW"
+        or analysis_metadata(snapshot).get("adjustment") != "RAW"
         or snapshot["report"].get("recognized_adjustment") != "RAW"
     ):
         raise PlatformError("CHART_REVIEW_REQUIRES_ALIGNED_REPORT")
@@ -60,7 +61,7 @@ def review(
     origin = datetime.fromisoformat(old["source"]["last_timestamp"])
     if at < origin:
         raise ValueError("Review cannot precede original report")
-    metadata = deepcopy(snapshot["request"])
+    metadata = deepcopy(analysis_metadata(snapshot))
     timeframe = metadata.get("timeframe", "1d")
     day = at.astimezone(ZONE).date()
     metadata.update(

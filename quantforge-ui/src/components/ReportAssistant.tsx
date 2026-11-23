@@ -12,6 +12,7 @@ function EvidenceValue({ value, depth = 0 }: { value: unknown; depth?: number })
   if (Array.isArray(value)) return value.length ? <ul>{value.map((v, i) => <li key={i}><EvidenceValue value={v} depth={depth + 1} /></li>)}</ul> : <span>无已记录项</span>
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>
+    if (record.input_mode === 'AUTO' && record.symbol === '待识别') return <span>本次仅提交图片；代码、日期或周期尚未完整辨认，不将缺失信息当作事实。</span>
     if (record.schema_version === 'chart-analysis-v1') return <><EvidenceValue value={record.request} /><p>策略版本：{String(record.strategy_version)}</p></>
     const fields = Object.entries(record).filter(([key]) => key in fieldNames)
     return fields.length && depth < 3 ? <dl className="assistant-evidence-fields">{fields.map(([key, v]) => <div key={key}><dt>{fieldNames[key]}</dt><dd><EvidenceValue value={v} depth={depth + 1} /></dd></div>)}</dl> : <span>完整记录可在下方技术详情中核查。</span>

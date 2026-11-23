@@ -2,7 +2,7 @@
 
 [![Offline checks](https://github.com/Ehahaha1015/quantforge-assistant/actions/workflows/showcase.yml/badge.svg)](https://github.com/Ehahaha1015/quantforge-assistant/actions/workflows/showcase.yml)
 
-上传股票走势图，确认证券、日期和K线周期，由后台任务生成可追溯的结构化报告。
+上传股票走势图，自动识别代码、日期和周期，由后台任务生成可追溯的结构化报告。
 模型图像观察、确定性策略计算和信息不足分别展示，支持 Markdown 下载及浏览器打印。
 本仓库包含完整前后端和无需模型密钥的离线演示。
 
@@ -112,6 +112,8 @@ SQLite 与图像文件不是同一事务，外部请求也不承诺端到端 exa
 [报告证据助手成品说明](docs/ASSISTANT-ACCEPTANCE-20261123.md)。
 报告新增历史K线、均线及未来条件分区，见
 [走势与条件情景可视化说明](docs/CONDITIONAL-VISUALIZATION-20261123.md)。
+默认上传一张图即可开始，缺少信息时先展示图像情景或行情背景，见
+[上传即分析与分层可视化](docs/IMAGE-FIRST-UPLOAD-20261123.md)。
 
 ## 开发与验证
 

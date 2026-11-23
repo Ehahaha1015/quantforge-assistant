@@ -14,6 +14,7 @@ from quantforge.strategies.chart_evaluation import assess_observation
 
 from .chart_algorithms import fetch_daily, parse_daily, symbol_code
 from .chart_market_cache import cached_fetch
+from .chart_metadata import metadata as analysis_metadata
 from .chart_timeframes import ZONE, cutoff_at, fetch_period, parse_period
 from .storage import canonical, digest
 
@@ -60,7 +61,7 @@ def _observe(snapshot: dict[str, Any], root: Path) -> dict[str, Any]:
         "period_end_time": now.astimezone(ZONE).strftime("%H:%M"),
     }
     cutoff = cutoff_at(metadata, now)
-    code = symbol_code(snapshot["request"]["symbol"])
+    code = symbol_code(analysis_metadata(snapshot)["symbol"])
     start = origin.astimezone(ZONE).date() - timedelta(days=7)
     query = {
         "followup": True,

@@ -113,7 +113,11 @@ class LocalChartMiddleware:
                 if headers.get(b"x-qf-mode") != required:
                     await refuse(403, "EXPLICIT_LOCAL_MODE_REQUIRED")
                     return
-                limit = MAX_REQUEST_BYTES if path == "/api/chart-analyses" else 65536
+                limit = (
+                    MAX_REQUEST_BYTES
+                    if path in {"/api/chart-analyses", "/api/chart-uploads"}
+                    else 65536
+                )
                 try:
                     length = int(headers.get(b"content-length", b"0"))
                 except ValueError:

@@ -47,6 +47,7 @@
 .chart-demo-notice p { line-height: 1.65; }
 .chart-demo-notice a { color: #174c92; text-decoration: underline; }
 .chart-form-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.chart-confirm[hidden] { display:none!important; }
 .chart-form-fields:disabled { opacity: .55; }
 .chart-demo-samples { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 24px; }
 .chart-demo-samples [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }

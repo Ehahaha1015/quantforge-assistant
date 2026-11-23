@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import date, datetime
 from decimal import Context, Decimal, DecimalException, localcontext
 from pathlib import Path
@@ -16,6 +17,7 @@ from quantforge.strategies.chart_evaluation import label_threshold
 
 from .chart_algorithms import parse_daily
 from .chart_conclusions import conclusion
+from .chart_metadata import metadata as analysis_metadata
 from .chart_quality_gate import quality_blockers
 from .chart_timeframes import bar_label, cutoff_at, horizon, parse_period
 from .storage import digest
@@ -54,6 +56,8 @@ class ChartVisualization(BaseModel):
     job_id: str
     snapshot_sha256: str
     status: Literal["AVAILABLE", "BLOCKED", "UNAVAILABLE"]
+    view_mode: Literal["ALIGNED", "BACKGROUND"] = "ALIGNED"
+    warnings: list[str] = Field(default_factory=list)
     reason: str | None
     symbol: str
     timeframe: Literal["60m", "1d", "1w"]
@@ -91,7 +95,7 @@ def _frame(snapshot: dict[str, Any], directory: Path) -> pl.DataFrame:
     raw = path.read_bytes()
     if hashlib.sha256(raw).hexdigest() != checksum:
         raise ValueError("Market archive checksum differs")
-    meta = snapshot["request"]
+    meta = analysis_metadata(snapshot)
     timeframe = meta.get("timeframe", "1d")
     if source.get("timeframe", timeframe) != timeframe:
         raise ValueError("Archived timeframe differs from report")
@@ -127,8 +131,10 @@ def _frame(snapshot: dict[str, Any], directory: Path) -> pl.DataFrame:
     return frame
 
 
-def visualization(snapshot: dict[str, Any], directory: Path) -> ChartVisualization:
-    meta = snapshot["request"]
+def visualization(
+    snapshot: dict[str, Any], directory: Path, *, preview: bool = False
+) -> ChartVisualization:
+    meta = analysis_metadata(snapshot)
     result = ChartVisualization(
         job_id=snapshot["id"],
         snapshot_sha256=digest(snapshot),
@@ -139,12 +145,33 @@ def visualization(snapshot: dict[str, Any], directory: Path) -> ChartVisualizati
         horizon_bars=horizon(meta),
     )
     combined = conclusion(snapshot)
+    report = snapshot.get("report") or {}
+    background = False
     if (
         snapshot["status"] != "SUCCEEDED"
         or not combined
         or combined["status"] != "READY"
     ):
-        return result
+        if (
+            not preview
+            or snapshot["status"] != "SUCCEEDED"
+            or report.get("image_quality") not in {"READABLE", "PARTIAL"}
+        ):
+            return result
+        codes = set(
+            re.findall(r"(?<!\d)\d{6}(?!\d)", report.get("recognized_symbol") or "")
+        )
+        expected = set(re.findall(r"(?<!\d)\d{6}(?!\d)", meta["symbol"]))
+        if len(codes) != 1 or codes != expected:
+            return result
+        if report.get("recognized_timeframe") != meta.get("timeframe", "1d"):
+            return result
+        background = True
+        result.view_mode = "BACKGROUND"
+        result.warnings = [
+            (combined or {}).get("alignment_note", "图像元数据尚未全部核对。"),
+            "下图为同一证券的供应商不复权行情背景，与截图价格口径可能不同；不叠加精确买卖参考。",
+        ]
     blockers = quality_blockers(snapshot)
     if blockers:
         result.reason = "；".join(blockers)
@@ -215,7 +242,7 @@ def visualization(snapshot: dict[str, Any], directory: Path) -> ChartVisualizati
                     )
                 )
         plan = algorithm.get("trade_plan") or {}
-        if plan.get("levels"):
+        if plan.get("levels") and not background:
             levels = ReferenceLevels.model_validate(plan["levels"])
             for value in (
                 levels.reference,
@@ -231,7 +258,9 @@ def visualization(snapshot: dict[str, Any], directory: Path) -> ChartVisualizati
         result.candles = candles
         result.reference_close = str(reference)
         result.atr14 = str(atr)
-        result.direction = combined["direction"]
+        result.direction = (
+            combined["direction"] if combined and not background else "UNCLEAR"
+        )
         result.as_of = source["last"]
         result.offline = source.get("provider") == "OFFLINE_SYNTHETIC"
         result.source_sha256 = source["raw_sha256"]

@@ -37,7 +37,7 @@ export function ForecastPlot({ view, analysis }: { view: ChartVisualization; ana
   const midPolygon = [...view.boundaries.map(b => `${fx(b.step)},${y(b.upper)}`), ...[...view.boundaries].reverse().map(b => `${fx(b.step)},${y(b.lower)}`)].join(' ')
   const band = view.boundaries[step]
   const selectedCandle = hovered === null ? null : candles[hovered]
-  const selectedScenario = scene === 'ALL' || scene === 'UNCLEAR' ? null : analysis.conclusion?.scenarios.find(s => s.direction === scene)
+  const selectedScenario = scene === 'ALL' || scene === 'UNCLEAR' ? null : (view.view_mode === 'BACKGROUND' ? [] : analysis.conclusion?.scenarios || []).find(s => s.direction === scene)
   const opacity = (direction: Direction) => scene === 'ALL' || scene === direction ? 1 : .18
   const means = (key: 'sma20' | 'sma60') => candles.map((c, i) => c[key] === null ? '' : `${i && candles[i - 1][key] !== null ? 'L' : 'M'}${x(i)},${y(c[key]!)}`).join(' ')
   return <>
@@ -71,29 +71,44 @@ export function ForecastPlot({ view, analysis }: { view: ChartVisualization; ana
     <div className="forecast-readout" aria-live="polite">{selectedCandle ? <><strong>{selectedCandle.label}</strong><span>开 {num(selectedCandle.open)}</span><span>高 {num(selectedCandle.high)}</span><span>低 {num(selectedCandle.low)}</span><span>收 {num(selectedCandle.close)}</span>{showMeans && <><span>MA20 {selectedCandle.sma20 ? num(selectedCandle.sma20) : '历史不足'}</span><span>MA60 {selectedCandle.sma60 ? num(selectedCandle.sma60) : '历史不足'}</span></>}</> : <><strong>后续第 {step} 根的分类边界</strong><span>偏强：高于 {num(band.upper)}</span><span>震荡：{num(band.lower)} — {num(band.upper)}</span><span>偏弱：低于 {num(band.lower)}</span></>}</div>
     <div className="forecast-scenes" aria-label="查看条件情景">{(['ALL', 'BULLISH', 'RANGE', 'BEARISH'] as const).map(value => <button key={value} className="button" aria-pressed={scene === value} onClick={() => { setScene(value); setHovered(null) }}>{value === 'ALL' ? '查看全部情景' : `查看${names[value]}情景`}</button>)}</div>
     {selectedScenario && <div className="forecast-scenario-detail"><strong style={{ color: colors[selectedScenario.direction] }}>{names[selectedScenario.direction]}情景</strong><p>触发条件：{selectedScenario.trigger}</p><p>{selectedScenario.interpretation}</p><p>失效条件：{selectedScenario.invalidation}</p></div>}
-    <div className="forecast-evidence">{analysis.conclusion?.groups.map(group => <div key={group.id}><span>{group.label}</span><strong style={{ color: colors[group.direction] }}>{names[group.direction]}{group.internal_conflict ? ' · 有分歧' : ''}</strong></div>)}</div>
+    {view.view_mode !== 'BACKGROUND' && <div className="forecast-evidence">{analysis.conclusion?.groups.map(group => <div key={group.id}><span>{group.label}</span><strong style={{ color: colors[group.direction] }}>{names[group.direction]}{group.internal_conflict ? ' · 有分歧' : ''}</strong></div>)}</div>}
     <details className="forecast-method"><summary>这张图是怎样算出来的？</summary><p>{view.formula}。ATR14 来自这份报告：{num(view.atr14!)}；归档收盘参考：{num(view.reference_close!)}。</p><p>{view.interpretation}中间根数只演示同一阈值公式，不代表生成了逐根预测。历史均线仅使用当根及之前的归档收盘价。</p>{levels && <p>条件参考线：{levels.rule} 参考线可能基于填写成本，不能当成当前市场价格。</p>}<p>行情 SHA256：{view.source_sha256}</p><p>标准行情 SHA256：{view.bars_sha256}</p></details>
   </>
 }
 
-export function ChartForecast({ analysis }: { analysis: ChartAnalysis }) {
+function ImageScenarios({ analysis }: { analysis: ChartAnalysis }) {
+  const [chosen, setChosen] = useState<Direction>('BULLISH')
+  const report = analysis.report!
+  const scenario = report.scenarios.find(s => s.direction === chosen)
+  const id = useId().replace(/:/g, '')
+  return <div className="image-scenario-view"><p className="forecast-summary">图像走势：<strong>{names[report.observed_trend]}</strong> · 图像情景示意</p><p className="forecast-disclaimer">先看图中结构与条件分支。下图不设价格轴，不从截图补造OHLC或精确未来价位。</p>
+    <svg viewBox="0 0 700 220" role="img" aria-labelledby={id}><title id={id}>基于截图观察的三种条件情景示意，不是价格轨迹</title><rect x="0" y="0" width="700" height="220" rx="10" fill="#142326" /><circle cx="80" cy="110" r="7" fill="#c2dcd2" /><text x="30" y="150" fill="#c2dcd2" fontSize="13">图中当前状态</text>{(['BULLISH','RANGE','BEARISH'] as const).map((direction,i)=> { const endY=45+i*65; return <g key={direction} opacity={chosen===direction?1:.3}><path d={`M90,110 C260,110 330,${endY} 540,${endY}`} stroke={colors[direction]} strokeWidth={chosen===direction?3:2} strokeDasharray="7 6" fill="none" /><circle cx="540" cy={endY} r="5" fill={colors[direction]}/><text x="558" y={endY+5} fill={colors[direction]} fontSize="14">{names[direction]}情景</text></g>})}</svg>
+    <div className="forecast-scenes">{(['BULLISH','RANGE','BEARISH'] as const).map(direction=><button type="button" className="button" key={direction} aria-pressed={chosen===direction} onClick={()=>setChosen(direction)}>查看{names[direction]}情景</button>)}</div>
+    {scenario && <div className="forecast-scenario-detail"><p>触发：{scenario.trigger}</p><p>{scenario.interpretation}</p><p>失效：{scenario.invalidation}</p></div>}
+    <p className="forecast-summary">{report.summary}</p><ul className="assistant-claims">{report.observations.map((fact,i)=><li key={i}>{fact.observation}（{fact.image_region}）</li>)}</ul>
+  </div>
+}
+
+export function ChartForecast({ analysis, progressive = false }: { analysis: ChartAnalysis; progressive?: boolean }) {
   const [view, setView] = useState<ChartVisualization | null>(null)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const aligned = effectiveAlignment(analysis).status === 'CONSISTENT'
+  const imageReadable = !!analysis.report && ['READABLE','PARTIAL'].includes(analysis.report.image_quality)
   useEffect(() => {
     const controller = new AbortController()
     setView(null); setError('')
-    if (!aligned || analysis.status !== 'SUCCEEDED') return () => controller.abort()
-    readVisualization(analysis.id, controller.signal).then(result => {
+    if (!imageReadable || (!progressive && !aligned) || analysis.status !== 'SUCCEEDED') return () => controller.abort()
+    readVisualization(analysis.id, controller.signal, true).then(result => {
       if (controller.signal.aborted) return
       if (result.symbol !== analysis.request.symbol || result.timeframe !== (analysis.request.timeframe || '1d') || result.horizon_bars !== (analysis.request.horizon_bars || (analysis.request.timeframe === '60m' ? 4 : analysis.request.timeframe === '1w' ? 1 : analysis.request.horizon_sessions)) || analysis.analysis_guard && result.snapshot_sha256 !== analysis.analysis_guard.snapshot_sha256 || result.bars_sha256 !== (analysis.algorithm_analysis?.source?.bars_sha256 || null) && result.status === 'AVAILABLE') throw new Error('图表与这份报告的来源或版本不一致。')
       setView(result)
     }).catch(e => { if (!controller.signal.aborted) setError((e as Error).message) })
     return () => controller.abort()
-  }, [analysis.id, analysis.updated_at, aligned, attempt, analysis.status, analysis.request.symbol, analysis.request.timeframe, analysis.request.horizon_bars, analysis.request.horizon_sessions, analysis.analysis_guard?.snapshot_sha256, analysis.algorithm_analysis?.source?.bars_sha256])
+  }, [analysis.id, analysis.updated_at, aligned, progressive, imageReadable, attempt, analysis.status, analysis.request.symbol, analysis.request.timeframe, analysis.request.horizon_bars, analysis.request.horizon_sessions, analysis.analysis_guard?.snapshot_sha256, analysis.algorithm_analysis?.source?.bars_sha256])
   if (!analysis.report) return null
+  if (!progressive && !aligned) return <section className="chart-forecast chart-section" aria-label="走势与条件情景可视化"><p className="forecast-empty">先核对截图与行情，暂不绘制价格情景。{effectiveAlignment(analysis).note}</p></section>
   return <section className="chart-forecast chart-section" aria-label="走势与条件情景可视化"><div className="forecast-heading"><div><span className="chart-kicker">算法证据 · 图形推演</span><h3>把走势与未来条件放到一张图上</h3></div><span className="forecast-badge">条件情景 · 预测效果未验证</span></div>
-    {!aligned ? <p className="forecast-empty">先核对截图与行情，暂不绘制价格情景。{effectiveAlignment(analysis).note}</p> : error ? <div role="alert"><p>{error}</p><button className="button" onClick={() => setAttempt(n => n + 1)}>重新读取归档图表</button></div> : !view ? <p role="status">正在重建归档图表，不调用模型或读取新行情…</p> : view.status !== 'AVAILABLE' ? <p className="forecast-empty">{view.reason}</p> : <><p className="forecast-summary">截至 {view.as_of} · 综合倾向：<strong>{names[view.direction]}</strong> · 后续 {view.horizon_bars} 根{timeframeNames[view.timeframe]}K线{view.offline ? ' · 合成演示数据' : ''}</p><p className="forecast-disclaimer">右侧展示满足什么涨跌幅才属于各类情景，不表示价格将沿虚线运行，不提供涨跌概率。</p><ForecastPlot key={`${analysis.id}-${view.snapshot_sha256}`} view={view} analysis={analysis} /></>}
+    {!imageReadable ? <p className="forecast-empty">图片无法辨认，请换一张清晰图。</p> : error ? <><ImageScenarios analysis={analysis}/><div role="alert"><p>{error}</p><button className="button" onClick={() => setAttempt(n => n + 1)}>重新读取归档图表</button></div></> : !view ? <p role="status">正在重建归档图表，不调用模型或读取新行情…</p> : view.status !== 'AVAILABLE' ? <><ImageScenarios analysis={analysis}/><p className="chart-form-hint">行情背景暂不可用：{view.reason}</p></> : <>{view.view_mode === 'BACKGROUND' && <div className="forecast-scenario-detail"><strong>先展示行情背景，精确参考待核对</strong>{view.warnings?.map(note=><p key={note}>{note}</p>)}</div>}<p className="forecast-summary">截至 {view.as_of} · {view.view_mode === 'BACKGROUND' ? '同一证券不复权行情背景' : <>综合倾向：<strong>{names[view.direction]}</strong></>} · 后续 {view.horizon_bars} 根{timeframeNames[view.timeframe]}K线{view.offline ? ' · 合成演示数据' : ''}</p><p className="forecast-disclaimer">右侧展示满足什么涨跌幅才属于各类情景，不表示价格将沿虚线运行，不提供涨跌概率。</p><ForecastPlot key={`${analysis.id}-${view.snapshot_sha256}`} view={view} analysis={analysis} /></>}
   </section>
 }

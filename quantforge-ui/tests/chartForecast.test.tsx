@@ -67,3 +67,27 @@ it('loads only the saved source and rejects a response belonging to another repo
   expect(await screen.findByRole('alert')).toHaveTextContent('来源或版本不一致')
   expect(screen.queryByRole('group', { name: /历史K线/ })).not.toBeInTheDocument()
 })
+
+it('progressively renders image scenarios when dates or timeframe are missing', async () => {
+  const a = analysis()
+  a.report!.recognized_period = null
+  a.report!.recognized_timeframe = null
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...chart(), status: 'BLOCKED', reason: '日期未明确', candles: [], boundaries: [], levels: null, atr14: null, reference_close: null }) })))
+  render(<ChartForecast analysis={a} progressive />)
+  expect(await screen.findByRole('img', { name: /基于截图观察的三种条件情景示意/ })).toBeInTheDocument()
+  expect(screen.queryByRole('group', { name: /历史K线/ })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '查看偏弱情景' }))
+  expect(screen.getByText('触发：仅在条件成立时。')).toBeInTheDocument()
+})
+
+it('shows adjusted-image background with warnings and without exact trade references', async () => {
+  const a = analysis()
+  a.request.adjustment = 'QFQ'; a.report!.recognized_adjustment = 'QFQ'
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...chart(), view_mode: 'BACKGROUND', warnings: ['截图为前复权，背景为不复权'], direction: 'UNCLEAR', levels: null }) })))
+  render(<ChartForecast analysis={a} progressive />)
+  expect(await screen.findByRole('group', { name: /历史K线与未来5根条件分区/ })).toBeInTheDocument()
+  expect(screen.getByText('截图为前复权，背景为不复权')).toBeInTheDocument()
+  expect(screen.queryByLabelText('条件参考线')).not.toBeInTheDocument()
+  expect(screen.queryByText(/止损参考 194/)).not.toBeInTheDocument()
+  expect(() => parseVisualization({ ...chart(), view_mode: 'BACKGROUND' }, a.id)).toThrow('不能携带精确买卖参考')
+})

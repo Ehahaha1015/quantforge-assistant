@@ -88,7 +88,11 @@ def analyze(
     algorithm_analysis: dict[str, Any] | None = None,
 ) -> tuple[ChartReport, dict[str, Any]]:
     prompt = {
-        "confirmed_by_user": metadata,
+        (
+            "image_recognition_request"
+            if metadata.get("input_mode") == "AUTO"
+            else "confirmed_by_user"
+        ): metadata,
         "required_json_schema": ChartReport.model_json_schema(),
         "deterministic_core_analysis": model_facts(algorithm_analysis),
     }
