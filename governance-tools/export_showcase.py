@@ -32,6 +32,8 @@ ROOT_FILES = (
     "docs/ANALYSIS-ASSISTANT-IMPROVEMENT-PLAN-20261123.md",
     "docs/ASSISTANT-ACCEPTANCE-20261123.md",
     "docs/images/report-assistant.png",
+    "docs/CONDITIONAL-VISUALIZATION-20261123.md",
+    "docs/images/conditional-forecast.png",
 )
 
 

@@ -39,6 +39,7 @@ from .chart_quality_gate import calendar_status
 from .chart_reports import ChartRequest, markdown
 from .chart_runtime import ChartRuntime
 from .chart_timeframes import ZONE
+from .chart_visualization import ChartVisualization, visualization
 from .storage import PlatformError
 from .supervisor import WorkerSupervisor
 
@@ -223,6 +224,12 @@ def create_app(
     @app.get("/api/chart-analyses/{job_id}/assistant", response_model=ReportBrief)
     def assistant_brief(job_id: str) -> ReportBrief:
         return brief(charts.get(job_id))
+
+    @app.get(
+        "/api/chart-analyses/{job_id}/visualization", response_model=ChartVisualization
+    )
+    def chart_visualization(job_id: str) -> ChartVisualization:
+        return visualization(charts.get(job_id), charts.market_data)
 
     @app.post("/api/chart-analyses/{job_id}/question", response_model=ReportAnswer)
     def assistant_answer(job_id: str, command: QuestionCommand) -> ReportAnswer:

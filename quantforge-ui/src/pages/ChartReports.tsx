@@ -12,6 +12,7 @@ import { ReportPlanReplay } from '../components/ReportPlanReplay'
 import { ChartReview } from '../components/ChartReview'
 import { ChartForwardStatus } from '../components/ChartForwardStatus'
 import { ReportAssistant } from '../components/ReportAssistant'
+import { ChartForecast } from '../components/ChartForecast'
 
 const names = { WAITING_FOR_MODEL: '等待识图服务', QUEUED: '排队中', RUNNING: '正在分析', SUCCEEDED: '报告已生成', FAILED: '生成未完成', UNKNOWN: '调用结果待核查' }
 const trends: Record<Direction, string> = { BULLISH: '偏强', RANGE: '震荡', BEARISH: '偏弱', UNCLEAR: '无法判断' }
@@ -164,6 +165,7 @@ export function ChartReports() {
       {analysis ? <>
         <div className="chart-result-header"><div><span className="chart-kicker">{analysis.request.symbol}</span><h2>{names[analysis.status]}</h2><p>{analysis.request.period_start} — {analysis.request.period_end} · {horizonText(analysis.request)}</p></div><Badge tone={analysis.status === 'SUCCEEDED' ? 'positive' : 'warning'}>{names[analysis.status]}</Badge></div>
         {!report && <div className="chart-empty-result">{analysis.status === 'RUNNING' || analysis.status === 'QUEUED' ? <LoaderCircle size={36} className="chart-spin" /> : <FileImage size={36} />}<h3>{analysis.status === 'UNKNOWN' ? '调用结果未知，已停止自动重发' : analysis.status === 'FAILED' ? '本次报告未完成' : analysis.status === 'WAITING_FOR_MODEL' ? '截图已保存，等待识图服务' : '正在整理图中信息与趋势情景'}</h3><p>{analysis.status === 'UNKNOWN' ? '请先核查服务商请求与账单，再决定如何处理。' : analysis.status === 'FAILED' ? '可能是服务拒绝、图片数据异常或报告格式未通过检查。本次不会自动重试。' : analysis.status === 'WAITING_FOR_MODEL' ? '配置 DeepSeek API Key 与预算后，即可生成这份报告。' : '任务在后台执行，离开页面后仍会继续。'}</p>{analysis.error && <p className="chart-failure-reason">{refusalText(analysis.error) || `未完成原因（${analysis.error}）`}</p>}{analysis.status === 'WAITING_FOR_MODEL' && <button type="button" className="button primary" disabled={!provider?.ready || busy} onClick={() => { void start() }}>生成这份报告</button>}</div>}
+        {report && <ChartForecast key={`forecast-${analysis.id}`} analysis={analysis} />}
         {report && <ReportAssistant key={analysis.id} analysis={analysis} items={items} />}
         <ChartSynthesis analysis={analysis} />
         <ChartTradePlan analysis={analysis} />
