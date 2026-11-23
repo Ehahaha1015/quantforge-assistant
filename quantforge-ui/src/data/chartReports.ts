@@ -12,8 +12,8 @@ export type AlgorithmAnalysis = { schema_version: 'core-chart-strategies-v1' | '
 export type ChartInput = { adjustment?: 'RAW' | 'QFQ' | 'HFQ' | 'UNKNOWN'; max_holding_bars?: 3 | 5 | 10 | 20 | null; review_interval_bars?: 1; include_context?: boolean; position_reference_id?: string | null; timeframe?: Timeframe; horizon_bars?: 1 | 4 | 5 | 20; period_end_time?: string; purchase_price?: string | null; held_bars?: number; symbol: string; display_name: string; period_start: string; period_end: string; horizon_sessions: 5 | 20; question: string; image_base64: string; channel: 'WEB' }
 export type Report = { recognized_adjustment?: 'RAW' | 'QFQ' | 'HFQ' | 'UNKNOWN' | null; recognized_timeframe?: Timeframe | null; image_quality: 'READABLE' | 'PARTIAL' | 'UNREADABLE' | 'NOT_A_CHART'; recognized_symbol: string | null; recognized_period: string | null; summary: string; observed_trend: Direction; outlook: Direction; observations: { observation: string; image_region: string }[]; support_zones: string[]; resistance_zones: string[]; volume_comment: string; scenarios: { direction: Exclude<Direction, 'UNCLEAR'>; trigger: string; interpretation: string; invalidation: string }[]; uncertainties: string[] }
 export type ChartSummary = { id: string; status: ChartStatus; request: Omit<ChartInput, 'image_base64'>; image: { sha256: string; bytes: number; width: number; height: number; mime: string }; created_at: string; updated_at: string }
-export type ChartAnalysis = ChartSummary & { conclusion?: Conclusion | null; schema_version: 'chart-analysis-v1'; report: Report | null; algorithm_analysis?: AlgorithmAnalysis | null; image_alignment?: { status: 'MISMATCH' | 'CONSISTENT' | 'UNCONFIRMED'; note: string } | null; strategy_version: string; error: string | null; model_call: { model: string; reserved_cny: string } | null; live_authority: 'NONE'; forecast_validated: false }
-export type ChartProvider = { schema_version: 'chart-provider-status-v1'; provider: 'DeepSeek'; model: string; configured: boolean; ready: boolean; max_cost_cny: string; reserved_cny: string; calls_used: number; calls_limit: number; qq_connected: boolean; strategy_version: string }
+export type ChartAnalysis = ChartSummary & { analysis_guard?: {status:'READY'|'NEEDS_REVIEW'|'DATA_UNAVAILABLE'|'NOT_READY';note:string;snapshot_sha256:string}; conclusion?: Conclusion | null; schema_version: 'chart-analysis-v1'; report: Report | null; algorithm_analysis?: AlgorithmAnalysis | null; image_alignment?: { status: 'MISMATCH' | 'CONSISTENT' | 'UNCONFIRMED'; note: string } | null; strategy_version: string; error: string | null; model_call: { model: string; reserved_cny: string } | null; live_authority: 'NONE'; forecast_validated: false }
+export type ChartProvider = { jobs_used?: number; jobs_limit?: number; calendar?: {maintenance_due:boolean; current_year_supported:boolean; next_year_supported:boolean; supported_years:number[]; note:string}; schema_version: 'chart-provider-status-v1'; provider: 'DeepSeek'; model: string; configured: boolean; ready: boolean; max_cost_cny: string; reserved_cny: string; calls_used: number; calls_limit: number; qq_connected: boolean; strategy_version: string }
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const states = ['WAITING_FOR_MODEL', 'QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN']
 const directions = ['BULLISH', 'RANGE', 'BEARISH', 'UNCLEAR']
@@ -21,6 +21,7 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => 
 export const chartAsset = (id: string, kind: 'image' | 'report.md') => `${bindingsApi}/api/chart-analyses/${encodeURIComponent(id)}/${kind}`
 export function parseAnalysis(v: unknown): ChartAnalysis {
   if (!record(v) || v.schema_version !== 'chart-analysis-v1' || v.live_authority !== 'NONE' || v.forecast_validated !== false || typeof v.id !== 'string' || !/^chart-[a-f0-9]{32}$/.test(v.id) || !states.includes(String(v.status)) || !record(v.request) || typeof v.request.symbol !== 'string' || !record(v.image) || typeof v.image.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(v.image.sha256)) throw new Error('截图任务或来源无法核验')
+  if (v.analysis_guard != null && (!record(v.analysis_guard) || !['READY','NEEDS_REVIEW','DATA_UNAVAILABLE','NOT_READY'].includes(String(v.analysis_guard.status)) || typeof v.analysis_guard.note !== 'string' || !/^[a-f0-9]{64}$/.test(String(v.analysis_guard.snapshot_sha256)))) throw new Error('分析可用性无法核验')
   if (v.report !== null) {
     const r = v.report
     if (!record(r) || typeof r.summary !== 'string' || !directions.includes(String(r.outlook)) || !directions.includes(String(r.observed_trend)) || !Array.isArray(r.observations) || !r.observations.every(x => record(x) && typeof x.observation === 'string' && typeof x.image_region === 'string') || !Array.isArray(r.scenarios) || !r.scenarios.every(x => record(x) && ['BULLISH', 'RANGE', 'BEARISH'].includes(String(x.direction)) && ['trigger', 'interpretation', 'invalidation'].every(k => typeof x[k] === 'string')) || !strings(r.support_zones) || !strings(r.resistance_zones) || !strings(r.uncertainties) || typeof r.volume_comment !== 'string') throw new Error('报告内容无法核验')
@@ -36,6 +37,8 @@ export function parseAnalysis(v: unknown): ChartAnalysis {
   return v as ChartAnalysis
 }
 export function parseProvider(v: unknown): ChartProvider {
+  if (record(v) && v.calendar != null && (!record(v.calendar) || !['maintenance_due', 'current_year_supported', 'next_year_supported'].every(k => typeof (v.calendar as Record<string, unknown>)[k] === 'boolean') || !Array.isArray(v.calendar.supported_years) || !v.calendar.supported_years.every(year => Number.isInteger(year) && year >= 2000 && year <= 9999) || typeof v.calendar.note !== 'string')) throw new Error('交易日历状态无法核验')
+  if (record(v) && ['jobs_used', 'jobs_limit'].some(k => v[k] != null && (!Number.isSafeInteger(v[k]) || Number(v[k]) < 0))) throw new Error('工作区容量无法核验')
   if (!record(v) || 'api_key' in v || 'secret' in v || v.schema_version !== 'chart-provider-status-v1' || v.provider !== 'DeepSeek' || typeof v.configured !== 'boolean' || typeof v.ready !== 'boolean' || typeof v.max_cost_cny !== 'string' || typeof v.reserved_cny !== 'string' || !Number.isSafeInteger(v.calls_used) || typeof v.qq_connected !== 'boolean') throw new Error('识图服务状态无法核验')
   return v as ChartProvider
 }
@@ -81,7 +84,7 @@ const refusals: Record<string, string> = {
   CHART_OR_REPORT_UNAVAILABLE: '暂时无法读取这份报告，请稍后重试。',
   CHART_START_REQUIRES_WAITING: '这份报告不在等待生成状态，无法再次发起。',
   CHART_PRIOR_CALL_REQUIRES_REVIEW: '同一张图曾出现结果未知的调用，请先核查服务商记录，再决定是否重试。',
-  CHART_WORKSPACE_FULL: '报告数量已达上限（100份），请先清理本机数据目录再上传。',
+  CHART_WORKSPACE_FULL: '报告数量已达上限（100份），请保留历史与预算记录，先导出并联系维护者处理容量；不要删除工作区以绕过累计限制。',
   CHART_HISTORY_INTEGRITY_FAILED: '报告历史校验失败，请勿继续使用这条记录。',
   CHART_PROJECTION_INTEGRITY_FAILED: '任务记录校验失败，请勿继续使用这条记录。',
   CHART_MARKET_DATA_INTEGRITY_FAILED: '行情原始数据校验失败，本次不再给出算法结论。',

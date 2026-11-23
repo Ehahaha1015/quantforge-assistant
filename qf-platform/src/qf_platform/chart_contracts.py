@@ -29,6 +29,12 @@ class ExtensibleResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class AnalysisGuard(BaseModel):
+    status: Literal["READY", "NEEDS_REVIEW", "DATA_UNAVAILABLE", "NOT_READY"]
+    note: str
+    snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class AnalysisResponse(ExtensibleResponse):
     schema_version: Literal["chart-analysis-v1"]
     id: str
@@ -39,6 +45,7 @@ class AnalysisResponse(ExtensibleResponse):
     report: ChartReport | None
     error: str | None
     forecast_validated: Literal[False]
+    analysis_guard: AnalysisGuard | None = None
 
 
 class SettingsResponse(ExtensibleResponse):

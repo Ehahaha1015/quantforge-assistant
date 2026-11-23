@@ -107,7 +107,9 @@ SQLite 与图像文件不是同一事务，外部请求也不承诺端到端 exa
 [代码阅读、动手任务与面试讲解](docs/INTERNSHIP-INTERVIEW.md)。
 
 产品现状评估、优先级与建议验收标准见
-[分析助手后续改进计划（2026-11-23，仅规划，未实施）](docs/ANALYSIS-ASSISTANT-IMPROVEMENT-PLAN-20261123.md)。
+[分析助手后续改进原规划（2026-11-23）](docs/ANALYSIS-ASSISTANT-IMPROVEMENT-PLAN-20261123.md)。
+已交付的证据摘要、只读追问、报告对比与验收步骤见
+[报告证据助手成品说明](docs/ASSISTANT-ACCEPTANCE-20261123.md)。
 
 ## 开发与验证
 

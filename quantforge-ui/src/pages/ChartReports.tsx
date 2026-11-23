@@ -11,6 +11,7 @@ import { ChartObservation } from '../components/ChartObservation'
 import { ReportPlanReplay } from '../components/ReportPlanReplay'
 import { ChartReview } from '../components/ChartReview'
 import { ChartForwardStatus } from '../components/ChartForwardStatus'
+import { ReportAssistant } from '../components/ReportAssistant'
 
 const names = { WAITING_FOR_MODEL: '等待识图服务', QUEUED: '排队中', RUNNING: '正在分析', SUCCEEDED: '报告已生成', FAILED: '生成未完成', UNKNOWN: '调用结果待核查' }
 const trends: Record<Direction, string> = { BULLISH: '偏强', RANGE: '震荡', BEARISH: '偏弱', UNCLEAR: '无法判断' }
@@ -51,6 +52,8 @@ export function ChartReports() {
   const [online, setOnline] = useState(false)
   const [demo, setDemo] = useState<boolean | null>(null)
   const [notice, setNotice] = useState('')
+  const [historyQuery, setHistoryQuery] = useState('')
+  const [historyStatus, setHistoryStatus] = useState('ALL')
   const pending = useRef<{ payload: ChartInput; key: string } | null>(null)
   const submitting = useRef(false)
   useEffect(() => {
@@ -109,10 +112,13 @@ export function ChartReports() {
   }
   const choose = (id: string) => { setSelected(id); setAnalysis(null); setNotice('') }
   const report = analysis?.report
+  const filteredItems = items.filter(item => (historyStatus === 'ALL' || item.status === historyStatus) && `${item.request.symbol} ${item.request.period_start} ${item.request.period_end}`.toLowerCase().includes(historyQuery.trim().toLowerCase()))
   return <div className="chart-assistant">
     <PageHeading eyebrow="QUANTFORGE / CHART ASSISTANT" title="股票截图报告" description="选择60分钟、日线或周线，结合内置策略梳理依据与进退条件。" action={<Badge tone={online ? 'positive' : 'warning'}>{online ? '报告服务在线' : '正在连接报告服务'}</Badge>} />
     <div className="chart-intro"><div><span className="chart-kicker">从一张截图开始</span><h2>看清这段走势，写清每一种可能。</h2><p>图像观察、条件性推演与信息不足分别呈现。不会把单张截图解读成确定的涨跌结论。</p></div><div className="chart-intro-steps"><span><b>01</b> 上传与确认</span><span><b>02</b> 模型解读</span><span><b>03</b> 查看与下载</span></div></div>
     {error && <div role="alert" className="chart-message chart-error">{error}</div>}
+    {demo === false && provider?.calendar?.maintenance_due && <div className="chart-message assistant-maintenance"><strong>交易日历需要维护</strong><p>已核验年份：{provider.calendar.supported_years.join('、')}。未核验年份将暂停有效结论，不按普通工作日推测交易日。</p></div>}
+    {demo === false && provider && <p className="assistant-capacity">累计调用 {provider.calls_used} / {provider.calls_limit} · 保守预留 ¥{provider.reserved_cny} / ¥{provider.max_cost_cny}{provider.jobs_used != null ? ` · 报告 ${provider.jobs_used} / ${provider.jobs_limit}` : ''}。预留不是供应商账单，未知调用仍保留预留。</p>}
     {notice && <div role="status" className="chart-message">{notice}</div>}
     <ChartDemoNotice onModeChange={setDemo} />
     {demo && <nav className="chart-demo-samples" aria-label="离线演示样例">
@@ -158,6 +164,7 @@ export function ChartReports() {
       {analysis ? <>
         <div className="chart-result-header"><div><span className="chart-kicker">{analysis.request.symbol}</span><h2>{names[analysis.status]}</h2><p>{analysis.request.period_start} — {analysis.request.period_end} · {horizonText(analysis.request)}</p></div><Badge tone={analysis.status === 'SUCCEEDED' ? 'positive' : 'warning'}>{names[analysis.status]}</Badge></div>
         {!report && <div className="chart-empty-result">{analysis.status === 'RUNNING' || analysis.status === 'QUEUED' ? <LoaderCircle size={36} className="chart-spin" /> : <FileImage size={36} />}<h3>{analysis.status === 'UNKNOWN' ? '调用结果未知，已停止自动重发' : analysis.status === 'FAILED' ? '本次报告未完成' : analysis.status === 'WAITING_FOR_MODEL' ? '截图已保存，等待识图服务' : '正在整理图中信息与趋势情景'}</h3><p>{analysis.status === 'UNKNOWN' ? '请先核查服务商请求与账单，再决定如何处理。' : analysis.status === 'FAILED' ? '可能是服务拒绝、图片数据异常或报告格式未通过检查。本次不会自动重试。' : analysis.status === 'WAITING_FOR_MODEL' ? '配置 DeepSeek API Key 与预算后，即可生成这份报告。' : '任务在后台执行，离开页面后仍会继续。'}</p>{analysis.error && <p className="chart-failure-reason">{refusalText(analysis.error) || `未完成原因（${analysis.error}）`}</p>}{analysis.status === 'WAITING_FOR_MODEL' && <button type="button" className="button primary" disabled={!provider?.ready || busy} onClick={() => { void start() }}>生成这份报告</button>}</div>}
+        {report && <ReportAssistant key={analysis.id} analysis={analysis} items={items} />}
         <ChartSynthesis analysis={analysis} />
         <ChartTradePlan analysis={analysis} />
         <ReportPlanReplay analysis={analysis} />
@@ -176,7 +183,7 @@ export function ChartReports() {
         </>}
         <ChartTimeline key={'timeline-'+analysis.id} id={analysis.id} /><details className="chart-source"><summary>原图与报告来源</summary><img src={chartAsset(analysis.id, 'image')} alt="这份报告对应的原始股票走势图" /><p>用户确认的股票、日期与周期不等于已由外部数据独立核验。策略 {analysis.strategy_version} · {time(analysis.updated_at)}</p><code>SHA256 {analysis.image.sha256}</code></details>
       </> : <div className="chart-welcome"><FileImage size={46} /><span className="chart-kicker">一份报告，三层信息</span><h2>从截图到有依据的走势解读</h2><p>上传走势图，确认代码、K线周期与截止时间。报告将说明图中看到了什么、未来情景在什么条件下成立，以及还缺少哪些信息。</p><div><span>图中趋势与依据</span><span>支撑、阻力与成交量</span><span>偏强 / 震荡 / 偏弱情景</span></div><small>没有清晰信息时，系统应说明无法判断。</small></div>}
-      {demo === false && <ChartForwardStatus />}<section className="chart-history"><div className="chart-panel-title"><h2>分析记录</h2><span>{items.length} 份截图</span></div>{items.length ? items.map(item => <button type="button" key={item.id} data-analysis-id={item.id} aria-pressed={item.id === selected} className={item.id === selected ? 'selected' : ''} onClick={() => choose(item.id)}><div><strong>{item.request.symbol}</strong><span>{item.request.timeframe ? timeframeNames[item.request.timeframe] : '日线 · 旧版'} · {item.request.period_start} — {item.request.period_end}</span></div><span>{names[item.status]}</span><ArrowRight size={15} /></button>) : <p>上传第一张走势图后，记录会保留在这里。</p>}</section>
+      {demo === false && <ChartForwardStatus />}<section className="chart-history"><div className="chart-panel-title"><h2>分析记录</h2><span>{items.length} 份截图</span></div><div className="assistant-history-filters"><label className="chart-field">搜索股票或日期<input value={historyQuery} onChange={e => setHistoryQuery(e.target.value)} placeholder="代码、开始或截止日期" /></label><label className="chart-field">筛选任务状态<select value={historyStatus} onChange={e => setHistoryStatus(e.target.value)}><option value="ALL">全部状态</option>{Object.entries(names).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label></div>{items.length ? filteredItems.length ? filteredItems.map(item => <button type="button" key={item.id} data-analysis-id={item.id} aria-pressed={item.id === selected} className={item.id === selected ? 'selected' : ''} onClick={() => choose(item.id)}><div><strong>{item.request.symbol}</strong><span>{item.request.timeframe ? timeframeNames[item.request.timeframe] : '日线 · 旧版'} · {item.request.period_start} — {item.request.period_end}</span></div><span>{names[item.status]}</span><ArrowRight size={15} /></button>) : <p>没有符合筛选条件的报告。</p> : <p>上传第一张走势图后，记录会保留在这里。</p>}</section>
     </section></div>
     <footer className="chart-footer"><span>网页与QQ机器人共用分析接口</span><span>{provider?.qq_connected ? 'QQ指定私聊已连接' : 'QQ未连接或等待扫码'} · 交易权限关闭</span></footer>
   </div>

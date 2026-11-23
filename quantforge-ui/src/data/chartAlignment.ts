@@ -5,6 +5,10 @@ export function effectiveAlignment(analysis: ChartAnalysis) {
   const report = analysis.report, meta = analysis.request
   const unknown = { status: 'UNCONFIRMED', note: '截图证券、日期、周期或截止时间尚未完整核对，先确认信息，不给购入卖出结论。' }
   if (!report || !meta) return unknown
+  if (analysis.analysis_guard && analysis.analysis_guard.status !== 'READY') return { status: 'UNCONFIRMED', note: analysis.analysis_guard.note }
+  const algorithm = analysis.algorithm_analysis
+  const blocking = ['SESSION_GAPS', 'NON_SESSION_BARS', 'ZERO_VOLUME_HISTORY', 'POSSIBLE_CORPORATE_ACTION_OR_GAP', 'CALENDAR_OUTSIDE_VERIFIED_RANGE', 'POSSIBLE_PRICE_DISCONTINUITY', 'INSUFFICIENT_HISTORY']
+  if (algorithm?.synthesis?.risk_flags.some(flag => blocking.includes(flag))) return { status: 'UNCONFIRMED', note: '行情存在缺口、价格跳变或历史不足，暂停有效结论与精确参考。' }
   const codes = new Set(report.recognized_symbol?.match(/(?<![0-9])[0-9]{6}(?![0-9])/g) || [])
   const expected = meta.symbol.match(/(?<![0-9])[0-9]{6}(?![0-9])/)?.[0]
   const period = report.recognized_period || ''

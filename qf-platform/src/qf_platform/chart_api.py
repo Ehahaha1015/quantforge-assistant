@@ -15,6 +15,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .chart_application import ChartApplication
+from .chart_assistant import (
+    Comparison,
+    QuestionCommand,
+    ReportAnswer,
+    ReportBrief,
+    answer,
+    brief,
+    compare,
+)
 from .chart_contracts import (
     AnalysisListResponse,
     AnalysisResponse,
@@ -26,8 +35,10 @@ from .chart_contracts import (
 )
 from .chart_forward import DailyForward
 from .chart_http import HttpObservations, LocalChartMiddleware
+from .chart_quality_gate import calendar_status
 from .chart_reports import ChartRequest, markdown
 from .chart_runtime import ChartRuntime
+from .chart_timeframes import ZONE
 from .storage import PlatformError
 from .supervisor import WorkerSupervisor
 
@@ -115,6 +126,7 @@ def create_app(
             "runtime_id": hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:24],
             "http_framework": "FastAPI",
             "demo": demo,
+            "calendar": calendar_status(datetime.now(ZONE).date()),
         }
 
     @app.get("/api/docs", response_class=HTMLResponse)
@@ -169,7 +181,16 @@ def create_app(
         response_model_exclude_unset=True,
     )
     def get(job_id: str) -> dict[str, Any]:
-        return charts.get(job_id)
+        snapshot = charts.get(job_id)
+        view = brief(snapshot)
+        return {
+            **snapshot,
+            "analysis_guard": {
+                "status": view.status,
+                "note": view.status_label,
+                "snapshot_sha256": view.snapshot_sha256,
+            },
+        }
 
     @app.post(
         "/api/chart-analyses/{job_id}/start",
@@ -198,6 +219,18 @@ def create_app(
     @app.get("/api/chart-analyses/{job_id}/events", response_model=EventsResponse)
     def events(job_id: str) -> EventsResponse:
         return application.events(job_id)
+
+    @app.get("/api/chart-analyses/{job_id}/assistant", response_model=ReportBrief)
+    def assistant_brief(job_id: str) -> ReportBrief:
+        return brief(charts.get(job_id))
+
+    @app.post("/api/chart-analyses/{job_id}/question", response_model=ReportAnswer)
+    def assistant_answer(job_id: str, command: QuestionCommand) -> ReportAnswer:
+        return answer(charts.get(job_id), command.question)
+
+    @app.get("/api/chart-analyses/{job_id}/comparison", response_model=Comparison)
+    def report_comparison(job_id: str, previous_id: str) -> Comparison:
+        return compare(charts.get(job_id), charts.get(previous_id))
 
     @app.get("/api/chart-analyses/{job_id}/image")
     def image(job_id: str) -> Response:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, cast
 
+from .chart_quality_gate import quality_blockers
 from .chart_reports import ChartReport, assess_alignment
 from .chart_timeframes import LABELS, horizon_text
 
@@ -47,8 +48,13 @@ def conclusion(snapshot: dict[str, Any]) -> dict[str, Any] | None:
         and stored["status"] != "CONSISTENT"
     ):
         alignment = stored
+    blockers = quality_blockers(snapshot)
+    if blockers:
+        alignment = {"status": "UNCONFIRMED", "note": "；".join(blockers)}
     ready = (
-        algorithm.get("status") == "AVAILABLE" and alignment["status"] == "CONSISTENT"
+        snapshot.get("status") == "SUCCEEDED"
+        and algorithm.get("status") == "AVAILABLE"
+        and alignment["status"] == "CONSISTENT"
     )
     if snapshot.get("conclusion") is not None and ready:
         return cast(dict[str, Any], deepcopy(snapshot["conclusion"]))

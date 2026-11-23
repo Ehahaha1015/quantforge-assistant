@@ -29,6 +29,9 @@ ROOT_FILES = (
     "docs/images/showcase.png",
     "docs/INTERNSHIP-ARCHITECTURE.md",
     "docs/INTERNSHIP-INTERVIEW.md",
+    "docs/ANALYSIS-ASSISTANT-IMPROVEMENT-PLAN-20261123.md",
+    "docs/ASSISTANT-ACCEPTANCE-20261123.md",
+    "docs/images/report-assistant.png",
 )
 
 

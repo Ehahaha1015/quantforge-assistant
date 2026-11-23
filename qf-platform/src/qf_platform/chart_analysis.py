@@ -29,7 +29,7 @@ from .chart_reports import (
 )
 from .chart_repository import ChartRepository
 from .chart_runtime import ChartRuntime, LiveChartRuntime
-from .chart_timeframes import cutoff_at
+from .chart_timeframes import ZONE, cutoff_at
 from .storage import PlatformError, canonical, digest
 
 MAX_JOBS = 100
@@ -84,6 +84,7 @@ class ChartAnalysisService:
         return json.loads(row[0]) if row else {"secret": None, "max_cost_cny": "0.00"}
 
     def status(self) -> dict[str, Any]:
+        from .chart_quality_gate import calendar_status
         from .qq_status import connected
 
         with closing(self.connect()) as db:
@@ -105,6 +106,9 @@ class ChartAnalysisService:
                 "reserved_cny": str(reserved),
                 "calls_used": len(calls),
                 "calls_limit": MAX_CALLS,
+                "jobs_used": db.execute("SELECT count(*) FROM jobs").fetchone()[0],
+                "jobs_limit": MAX_JOBS,
+                "calendar": calendar_status(datetime.now(ZONE).date()),
                 "currency": "CNY_CONSERVATIVE_RESERVE_ESTIMATE_NOT_PROVIDER_BILL",
                 "qq_connected": connected(self.root.parent),
                 "strategy_version": STRATEGY_VERSION,

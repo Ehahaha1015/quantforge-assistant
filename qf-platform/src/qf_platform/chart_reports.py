@@ -346,7 +346,9 @@ def assess_alignment(meta: dict[str, Any], report: ChartReport) -> dict[str, Any
 
 
 def markdown(snapshot: dict[str, Any]) -> str:
+    from .chart_assistant import brief_markdown
     from .chart_conclusions import conclusion
+    from .chart_quality_gate import quality_blockers
 
     report = ChartReport.model_validate(snapshot["report"])
     meta = snapshot["request"]
@@ -359,6 +361,8 @@ def markdown(snapshot: dict[str, Any]) -> str:
     }
     lines = [
         f"# {meta['symbol']} 股票走势图分析报告",
+        "",
+        *brief_markdown(snapshot),
         "",
         f"用户确认区间：{meta['period_start']} 至 {meta['period_end']}",
         f"情景观察范围：{horizon_text(meta)}（不是保证预测）",
@@ -403,7 +407,7 @@ def markdown(snapshot: dict[str, Any]) -> str:
         lines += ["## 购入与退出参考", "", alignment["note"]]
         if combined and combined.get("uncertainty_note"):
             lines += [combined["uncertainty_note"], ""]
-        if alignment["status"] == "CONSISTENT":
+        if alignment["status"] == "CONSISTENT" and not quality_blockers(snapshot):
             actions = {
                 "CONSIDER_ENTRY": "条件满足，可考虑购入",
                 "WAIT": "暂不购入，等待确认",
