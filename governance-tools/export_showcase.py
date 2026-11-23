@@ -12,6 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPOS = ("quantforge", "qf-lab", "qf-platform", "quantforge-ui")
 ROOT_FILES = (
+    "README.md",
+    "AGENTS.md",
     "compose.showcase.yaml",
     ".dockerignore",
     "run_showcase.ps1",
@@ -21,8 +23,10 @@ ROOT_FILES = (
     "deploy/docker/Dockerfile.web",
     "deploy/docker/nginx.conf",
     "governance-tools/ci_showcase.py",
+    "governance-tools/local_showcase.py",
     "governance-tools/export_showcase.py",
     "docs/SHOWCASE.md",
+    "docs/images/showcase.png",
     "docs/INTERNSHIP-ARCHITECTURE.md",
     "docs/INTERNSHIP-INTERVIEW.md",
 )
@@ -99,10 +103,6 @@ def export(output: Path) -> dict[str, str]:
             raw = path.read_bytes()
             archive.writestr(name, raw)
             hashes[name] = hashlib.sha256(raw).hexdigest()
-        readme = (ROOT / "docs/SHOWCASE.md").read_text(encoding="utf-8")
-        for name in ("INTERNSHIP-ARCHITECTURE.md", "INTERNSHIP-INTERVIEW.md"):
-            readme = readme.replace("(" + name + ")", "(docs/" + name + ")")
-        archive.writestr("README.md", readme)
         archive.writestr(
             ".gitignore",
             "**/.venv/\n**/node_modules/\n**/__pycache__/\n**/.pytest_cache/\n"

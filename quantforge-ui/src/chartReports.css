@@ -46,3 +46,12 @@
 .chart-demo-notice { margin: 20px 0; padding: 18px; border: 1px solid #5a8dcb; border-radius: 12px; background: #eef5ff; color: #172e50; }
 .chart-demo-notice p { line-height: 1.65; }
 .chart-demo-notice a { color: #174c92; text-decoration: underline; }
+.chart-form-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.chart-form-fields:disabled { opacity: .55; }
+.chart-demo-samples { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 24px; }
+.chart-demo-samples [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.chart-demo-guide h2 { font-size: 19px; line-height: 1.7; margin: 12px 0 24px; }
+.chart-demo-guide ol { padding-left: 20px; display: grid; gap: 20px; font-size: 13px; }
+.chart-demo-guide p { font-size: 12px; color: var(--text-secondary); line-height: 1.9; margin-top: 8px; }
+.chart-demo-guide > p { border-top: 1px solid var(--chart-line); padding-top: 20px; margin-top: 24px; }
+@media(max-width:760px) { .chart-demo-guide ol { grid-template-columns: 1fr 1fr; gap: 15px 30px; }.chart-demo-guide h2 { font-size: 17px; margin-bottom: 15px; } }

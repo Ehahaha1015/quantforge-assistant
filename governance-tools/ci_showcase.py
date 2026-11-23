@@ -6,6 +6,9 @@ import argparse
 import json
 import os
 import subprocess
+import time
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,7 +17,23 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--install", action="store_true")
+    parser.add_argument(
+        "--output-dir", type=Path, help="New evidence directory for this run"
+    )
     args = parser.parse_args()
+    evidence = args.output_dir or (
+        ROOT
+        / "local-smoke"
+        / (
+            "ci-"
+            + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            + "-"
+            + uuid.uuid4().hex[:8]
+        )
+    )
+    evidence = evidence.resolve()
+    evidence.mkdir(parents=True, exist_ok=False)
+    print(f"Verification evidence: {evidence}", flush=True)
     cache = ROOT / "local-tools/cache"
     environment = os.environ.copy()
     for key, folder in {
@@ -58,6 +77,7 @@ def main() -> None:
             "test_qq*.py",
             "test_worker.py",
             "test_supervisor.py",
+            "test_showcase_tooling.py",
         )
         directory = ROOT / "qf-platform"
         selected = sorted(
@@ -70,8 +90,6 @@ def main() -> None:
         if not selected:
             raise ValueError("Portable product test scope must not be empty")
         tests.extend(selected)
-    evidence = ROOT / "local-smoke"
-    evidence.mkdir(exist_ok=True)
     with (evidence / "ci-platform-coverage.json").open("x", encoding="utf-8") as stream:
         json.dump(
             {
@@ -84,6 +102,7 @@ def main() -> None:
         )
     print("CI coverage: " + scope, flush=True)
     commands = [
+        (".", [str(python), "-m", "ruff", "check", "governance-tools"]),
         ("qf-platform", [str(python), "-m", "ruff", "check", "."]),
         ("qf-platform", [str(python), "-m", "mypy", "src"]),
         ("qf-platform", tests),
@@ -97,7 +116,7 @@ def main() -> None:
                 "-m",
                 "qf_platform.chart_evaluation",
                 "--output",
-                str(ROOT / "local-smoke/ci-contract-evaluation.json"),
+                str(evidence / "ci-contract-evaluation.json"),
             ],
         ),
         (
@@ -108,12 +127,40 @@ def main() -> None:
                 "qf_platform.showcase_checks",
                 "verify",
                 "--root",
-                str(ROOT / "local-smoke/ci-fault-http"),
+                str(evidence / "ci-fault-http"),
             ],
         ),
     ]
-    for cwd, command in commands:
-        subprocess.run(command, cwd=ROOT / cwd, env=environment, check=True)
+    results = []
+    try:
+        for cwd, command in commands:
+            print(f"Checking {cwd}: {' '.join(command[1:])}", flush=True)
+            started = time.monotonic()
+            result = subprocess.run(
+                command, cwd=ROOT / cwd, env=environment, check=False
+            )
+            results.append(
+                {
+                    "cwd": cwd,
+                    "command": command,
+                    "returncode": result.returncode,
+                    "seconds": round(time.monotonic() - started, 3),
+                }
+            )
+            result.check_returncode()
+    finally:
+        (evidence / "ci-summary.json").write_text(
+            json.dumps(
+                {
+                    "passed": len(results) == len(commands)
+                    and all(row["returncode"] == 0 for row in results),
+                    "scope": scope,
+                    "checks": results,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
 
 if __name__ == "__main__":

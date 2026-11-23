@@ -15,7 +15,7 @@ beforeEach(() => {
   vi.stubGlobal('URL', class extends NativeURL { static createObjectURL() { return 'blob:fixture-preview' } static revokeObjectURL() {} })
   vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
     received.push({ url, options })
-    const value = url.endsWith('/api/chart-settings') ? provider : options?.method === 'POST' ? analysis : url.endsWith('/api/chart-analyses') ? { schema_version: 'chart-list-v1', items: [] } : analysis
+    const value = url.endsWith('/api/health') ? { schema_version: 'qf-health-v1', demo: false } : url.endsWith('/api/chart-settings') ? provider : options?.method === 'POST' ? analysis : url.endsWith('/api/chart-analyses') ? { schema_version: 'chart-list-v1', items: [] } : analysis
     return { ok: true, json: async () => value }
   }))
 })
@@ -74,6 +74,20 @@ it('rejects oversize inputs before submitting', async () => {
   fireEvent.change(screen.getByLabelText('上传股票走势图'), { target: { files: [file] } })
   expect(await screen.findByRole('alert')).toHaveTextContent('不超过5MB')
   await waitFor(() => expect(received.filter(row => row.options?.method === 'POST')).toHaveLength(0))
+})
+
+it('offers four read-only demo samples without requesting credentials or writes', async () => {
+  const samples = ['success', 'insufficient', 'invalid', 'unknown'].map((scenario, index) => ({ ...analysis, id: 'chart-' + String(index + 1).repeat(32), request: { ...request, question: 'demo:' + scenario } }))
+  const fetch = vi.fn(async (url: string, _options?: RequestInit) => ({ ok: true, json: async () => url.endsWith('/api/health') ? { schema_version: 'qf-health-v1', demo: true } : url.endsWith('/api/chart-settings') ? provider : url.endsWith('/api/chart-analyses') ? { schema_version: 'chart-list-v1', items: samples } : samples[0] }))
+  vi.stubGlobal('fetch', fetch)
+  render(<ChartReports />)
+  expect(await screen.findByRole('navigation', { name: '离线演示样例' })).toBeInTheDocument()
+  expect(screen.queryByLabelText('上传股票走势图')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '完整报告' }))
+  expect(await screen.findByText('截图已保存，等待识图服务')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '完整报告' })).toHaveAttribute('aria-pressed', 'true')
+  expect(fetch.mock.calls.every(([, options]) => !(options as RequestInit | undefined)?.method)).toBe(true)
 })
 
 it.each(['invalid-json', 'server-error', 'store-error'])('keeps one submission key after an ambiguous response: %s', async failure => {

@@ -49,9 +49,16 @@ export function ChartReports() {
   const [budget, setBudget] = useState('')
   const [error, setError] = useState('')
   const [online, setOnline] = useState(false)
+  const [demo, setDemo] = useState<boolean | null>(null)
   const [notice, setNotice] = useState('')
   const pending = useRef<{ payload: ChartInput; key: string } | null>(null)
   const submitting = useRef(false)
+  useEffect(() => {
+    if (demo && !selected) {
+      const first = items.find(item => item.request.question === 'demo:success')
+      if (first) setSelected(first.id)
+    }
+  }, [demo, items, selected])
   useEffect(() => () => { if (preview.startsWith('blob:')) URL.revokeObjectURL(preview) }, [preview])
   useEffect(() => {
     let active = true, timer: number
@@ -67,14 +74,14 @@ export function ChartReports() {
     return () => { active = false; controller.abort(); window.clearTimeout(timer) }
   }, [selected])
   const chooseFile = (next: File | undefined) => {
-    if (!next) return
+    if (!next || demo !== false) return
     setError('')
     if (next.size > 5 * 1024 * 1024 || next.size === 0) { setError('请选择不超过5MB的图片。'); return }
     if (next.type && !['image/png', 'image/jpeg', 'image/webp'].includes(next.type)) { setError('请选择 PNG、JPEG 或 WebP 图片。'); return }
     setFile(next); setPreview(URL.createObjectURL(next)); setConfirmed(false)
   }
   const submit = async (reuse = false) => {
-    if (submitting.current) return
+    if (submitting.current || demo !== false) return
     if (!reuse && (!file || !confirmed)) { setError('请先选择截图，并确认股票与时间范围。'); return }
     submitting.current = true; setBusy(true); setError(''); setNotice('')
     try {
@@ -87,13 +94,14 @@ export function ChartReports() {
     finally { submitting.current = false; setBusy(false) }
   }
   const configure = async () => {
+    if (demo !== false) return
     setConfigBusy(true); setError(''); setNotice('')
     try { const result = await configureChartProvider({ ...(apiKey ? { api_key: apiKey.trim() } : {}), max_cost_cny: budget }); setProvider(result); setApiKey(''); setNotice('识图连接与总预算已保存。历史调用记录保留。') }
     catch (failure) { setError((failure as Error).message) }
     finally { setConfigBusy(false) }
   }
   const start = async () => {
-    if (!analysis) return
+    if (!analysis || demo !== false) return
     setBusy(true); setError('')
     try { setAnalysis(await startChart(analysis.id)); setItems(await readCharts()) }
     catch (failure) { setError((failure as Error).message) }
@@ -106,8 +114,16 @@ export function ChartReports() {
     <div className="chart-intro"><div><span className="chart-kicker">从一张截图开始</span><h2>看清这段走势，写清每一种可能。</h2><p>图像观察、条件性推演与信息不足分别呈现。不会把单张截图解读成确定的涨跌结论。</p></div><div className="chart-intro-steps"><span><b>01</b> 上传与确认</span><span><b>02</b> 模型解读</span><span><b>03</b> 查看与下载</span></div></div>
     {error && <div role="alert" className="chart-message chart-error">{error}</div>}
     {notice && <div role="status" className="chart-message">{notice}</div>}
-    <ChartDemoNotice /><div className="chart-grid"><aside className="chart-input-panel" aria-label="新分析与模型配置">
-      <form onSubmit={event => { event.preventDefault(); void submit() }}>
+    <ChartDemoNotice onModeChange={setDemo} />
+    {demo && <nav className="chart-demo-samples" aria-label="离线演示样例">
+      {([['success', '完整报告'], ['insufficient', '资料不足'], ['invalid', '输出校验失败'], ['unknown', '调用结果未知']] as const).map(([scenario, label]) => {
+        const item = items.find(value => value.request.question === 'demo:' + scenario)
+        return <button key={scenario} type="button" className="button" disabled={!item} aria-pressed={item?.id === selected} onClick={() => { if (item) choose(item.id) }}>{label}</button>
+      })}
+    </nav>}
+    <div className="chart-grid"><aside className="chart-input-panel" aria-label="新分析与模型配置">
+      {demo === true ? <section className="chart-demo-guide" aria-label="演示验收指南"><span className="chart-kicker">OFFLINE WORKSPACE</span><h2>四个样例，走完报告流程</h2><ol><li><strong>完整报告</strong><p>核对综合结论、策略依据、原图和下载文件。</p></li><li><strong>资料不足</strong><p>查看信息不完整时，系统如何暂停有效结论。</p></li><li><strong>输出校验失败</strong><p>展开处理过程，核查输出被拒绝的原因。</p></li><li><strong>调用结果未知</strong><p>检查中断后的记录，以及停止自动重发的状态。</p></li></ol><p>此工作区仅使用合成图片、行情和模型输出。上传、真实行情复评和模型配置在演示中关闭。</p></section> : <form onSubmit={event => { event.preventDefault(); void submit() }}>
+        <fieldset className="chart-form-fields" disabled={demo !== false}>
         <div className="chart-panel-title"><ImageUp size={18} /><h2>新建分析</h2></div>
         <label className={'chart-upload' + (preview ? ' has-image' : '')} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!busy && !pending.current) chooseFile(event.dataTransfer.files[0]) }}>
           {preview ? <img src={preview} alt="待分析的股票走势图预览" /> : <><ImageUp size={34} /><strong>点击选择或拖入走势图</strong><span>PNG / JPEG / WebP · 最大5MB</span><small>尽量保留股票名称、日期、价格轴和成交量。</small></>}
@@ -130,13 +146,14 @@ export function ChartReports() {
         <label className="chart-confirm"><input type="checkbox" checked={confirmed} disabled={busy || !!pending.current} onChange={event => setConfirmed(event.target.checked)} /><span>我已确认股票、K线周期和截止时间与截图一致。</span></label>
         <button className="button primary chart-submit" type="submit" disabled={busy || !online || !file || !confirmed || !!pending.current}>{busy ? <LoaderCircle size={16} className="chart-spin" /> : <ArrowRight size={16} />}{provider?.ready ? '上传并生成报告' : '保存截图，稍后生成'}</button>
         {pending.current && <button type="button" className="button chart-submit" disabled={busy} onClick={() => { void submit(true) }}>核查同一次提交</button>}
-      </form>
-      <details className="chart-config" open={!provider?.configured}>
+        </fieldset>
+      </form>}
+      {demo === true ? <p className="chart-form-hint">当前为离线样例工作区，无需填写密钥或预算。请使用上方四个样例查看报告和失败原因。</p> : <details className="chart-config" open={!provider?.configured}>
         <summary><KeyRound size={15} />识图服务与预算<Badge tone={provider?.configured ? 'positive' : 'warning'}>{provider?.configured ? '已配置' : '待配置'}</Badge></summary>
         <p>DeepSeek V4.1 Flash · 密钥仅提交到本机后端，不会显示在报告中。</p>
-        <form onSubmit={event => { event.preventDefault(); void configure() }}><label className="chart-field">API Key<input type="password" autoComplete="off" value={apiKey} placeholder={provider?.configured ? '留空保留现有密钥' : '填写 DeepSeek API Key'} onChange={event => setApiKey(event.target.value)} /></label><label className="chart-field">累计预算上限（人民币）<input type="number" min="0" max="9999" step="0.01" required value={budget} placeholder={provider?.max_cost_cny || '例如10'} onChange={event => setBudget(event.target.value)} /></label><button className="button" disabled={configBusy || !online} type="submit">{configBusy ? '正在保存…' : '保存连接与预算'}</button></form>
+        <form onSubmit={event => { event.preventDefault(); void configure() }}><fieldset className="chart-form-fields" disabled={demo !== false}><label className="chart-field">API Key<input type="password" autoComplete="off" value={apiKey} placeholder={provider?.configured ? '留空保留现有密钥' : '填写 DeepSeek API Key'} onChange={event => setApiKey(event.target.value)} /></label><label className="chart-field">累计预算上限（人民币）<input type="number" min="0" max="9999" step="0.01" required value={budget} placeholder={provider?.max_cost_cny || '例如10'} onChange={event => setBudget(event.target.value)} /></label><button className="button" disabled={configBusy || !online} type="submit">{configBusy ? '正在保存…' : '保存连接与预算'}</button></fieldset></form>
         <p className="chart-budget">调用尝试 {provider?.calls_used || 0} 次 · 保守预留 ¥{Number(provider?.reserved_cny || 0).toFixed(3)} / 上限 ¥{provider?.max_cost_cny || '0'}</p><small>预留金额为保守估算，以服务商账单为准；修改预算不会清零历史记录。</small>
-      </details>
+      </details>}
     </aside><section className="chart-results" aria-label="截图分析结果">
       {analysis ? <>
         <div className="chart-result-header"><div><span className="chart-kicker">{analysis.request.symbol}</span><h2>{names[analysis.status]}</h2><p>{analysis.request.period_start} — {analysis.request.period_end} · {horizonText(analysis.request)}</p></div><Badge tone={analysis.status === 'SUCCEEDED' ? 'positive' : 'warning'}>{names[analysis.status]}</Badge></div>
@@ -144,8 +161,8 @@ export function ChartReports() {
         <ChartSynthesis analysis={analysis} />
         <ChartTradePlan analysis={analysis} />
         <ReportPlanReplay analysis={analysis} />
-        {report && <ChartObservation key={analysis.id} analysis={analysis} />}
-        {report && <ChartReview key={'review-'+analysis.id} analysis={analysis} />}
+        {report && demo === false && <ChartObservation key={'observation-'+analysis.id} analysis={analysis} />}
+        {report && demo === false && <ChartReview key={'review-'+analysis.id} analysis={analysis} />}
         {analysis.conclusion ? <details className="chart-strategy-details"><summary>全部策略证据与回放</summary><ChartAlgorithms analysis={analysis.algorithm_analysis} /></details> : <ChartAlgorithms analysis={analysis.algorithm_analysis} />}
         {report && <>
           <div className="chart-report-actions"><Badge tone={report.image_quality === 'READABLE' ? 'positive' : 'warning'}>{quality[report.image_quality]}</Badge><a className="button" href={chartAsset(analysis.id, 'report.md')} download><Download size={15} />下载报告</a><button className="button" onClick={() => window.print()}>打印 / 保存PDF</button></div>
@@ -157,9 +174,9 @@ export function ChartReports() {
           </>}
           {analysis.conclusion && <details className="chart-raw-report"><summary>原始识图叙述与图像依据（供核对）</summary><p>以下为模型原始叙述，单独归档，不作为有效综合结论。最终方向和参考动作见上方综合策略结论。</p><p>{report.summary}</p><p>模型辨认：{report.recognized_symbol || '代码未辨认'} · {report.recognized_period || '日期未辨认'}</p><ul>{report.observations.map((x,i)=><li key={i}>{x.observation}（{x.image_region}）</li>)}</ul><p>{report.volume_comment}</p><ul>{report.uncertainties.map((x,i)=><li key={i}>{x}</li>)}</ul></details>}
         </>}
-        <ChartTimeline key={analysis.id} id={analysis.id} /><details className="chart-source"><summary>原图与报告来源</summary><img src={chartAsset(analysis.id, 'image')} alt="这份报告对应的原始股票走势图" /><p>用户确认的股票、日期与周期不等于已由外部数据独立核验。策略 {analysis.strategy_version} · {time(analysis.updated_at)}</p><code>SHA256 {analysis.image.sha256}</code></details>
+        <ChartTimeline key={'timeline-'+analysis.id} id={analysis.id} /><details className="chart-source"><summary>原图与报告来源</summary><img src={chartAsset(analysis.id, 'image')} alt="这份报告对应的原始股票走势图" /><p>用户确认的股票、日期与周期不等于已由外部数据独立核验。策略 {analysis.strategy_version} · {time(analysis.updated_at)}</p><code>SHA256 {analysis.image.sha256}</code></details>
       </> : <div className="chart-welcome"><FileImage size={46} /><span className="chart-kicker">一份报告，三层信息</span><h2>从截图到有依据的走势解读</h2><p>上传走势图，确认代码、K线周期与截止时间。报告将说明图中看到了什么、未来情景在什么条件下成立，以及还缺少哪些信息。</p><div><span>图中趋势与依据</span><span>支撑、阻力与成交量</span><span>偏强 / 震荡 / 偏弱情景</span></div><small>没有清晰信息时，系统应说明无法判断。</small></div>}
-      <ChartForwardStatus /><section className="chart-history"><div className="chart-panel-title"><h2>分析记录</h2><span>{items.length} 份截图</span></div>{items.length ? items.map(item => <button type="button" key={item.id} data-analysis-id={item.id} aria-pressed={item.id === selected} className={item.id === selected ? 'selected' : ''} onClick={() => choose(item.id)}><div><strong>{item.request.symbol}</strong><span>{item.request.timeframe ? timeframeNames[item.request.timeframe] : '日线 · 旧版'} · {item.request.period_start} — {item.request.period_end}</span></div><span>{names[item.status]}</span><ArrowRight size={15} /></button>) : <p>上传第一张走势图后，记录会保留在这里。</p>}</section>
+      {demo === false && <ChartForwardStatus />}<section className="chart-history"><div className="chart-panel-title"><h2>分析记录</h2><span>{items.length} 份截图</span></div>{items.length ? items.map(item => <button type="button" key={item.id} data-analysis-id={item.id} aria-pressed={item.id === selected} className={item.id === selected ? 'selected' : ''} onClick={() => choose(item.id)}><div><strong>{item.request.symbol}</strong><span>{item.request.timeframe ? timeframeNames[item.request.timeframe] : '日线 · 旧版'} · {item.request.period_start} — {item.request.period_end}</span></div><span>{names[item.status]}</span><ArrowRight size={15} /></button>) : <p>上传第一张走势图后，记录会保留在这里。</p>}</section>
     </section></div>
     <footer className="chart-footer"><span>网页与QQ机器人共用分析接口</span><span>{provider?.qq_connected ? 'QQ指定私聊已连接' : 'QQ未连接或等待扫码'} · 交易权限关闭</span></footer>
   </div>

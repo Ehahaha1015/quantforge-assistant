@@ -49,8 +49,12 @@ it('shows empty real-forward counts without inventing accuracy',async()=>{
 it('mounts the review action when a verified report is selected on the main page',async()=>{
   const value=analysis()
   const provider={schema_version:'chart-provider-status-v1',provider:'DeepSeek',model:'deepseek-flash',configured:false,ready:false,max_cost_cny:'0',reserved_cny:'0',calls_used:0,calls_limit:100,qq_connected:false,strategy_version:'fixture'}
-  vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>url.endsWith('/chart-settings')?provider:url.endsWith('/chart-forward')?{schema_version:'daily-forward-status-v1',status:'DISABLED',frozen:0,matured:0,pending:0,missed_days:0,failed_sources:0,model_calls:0,forecast_validated:false,note:'fixture'}:url.endsWith('/chart-analyses')?{schema_version:'chart-list-v1',items:[value]}:value})))
+  vi.stubGlobal('fetch',vi.fn(async(url:string)=>({ok:true,json:async()=>url.endsWith('/health')?{schema_version:'qf-health-v1',demo:false}:url.endsWith('/chart-settings')?provider:url.endsWith('/chart-forward')?{schema_version:'daily-forward-status-v1',status:'DISABLED',frozen:0,matured:0,pending:0,missed_days:0,failed_sources:0,model_calls:0,forecast_validated:false,note:'fixture'}:url.endsWith('/chart-analyses')?{schema_version:'chart-list-v1',items:[value]}:value})))
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
   render(<ChartReports/>);
   fireEvent.click(await screen.findByRole('button',{name:/600519.*报告已生成/}))
   expect(await screen.findByRole('button',{name:'用最新行情复评'})).toBeInTheDocument()
+  expect(screen.getAllByRole('region', { name: '观察期结果' })).toHaveLength(1)
+  expect(errors).not.toHaveBeenCalled()
+  errors.mockRestore()
 })
