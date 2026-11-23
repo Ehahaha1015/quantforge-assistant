@@ -106,6 +106,9 @@ SQLite 与图像文件不是同一事务，外部请求也不承诺端到端 exa
 更多设计细节见 [架构、状态与事务取舍](docs/INTERNSHIP-ARCHITECTURE.md) 和
 [代码阅读、动手任务与面试讲解](docs/INTERNSHIP-INTERVIEW.md)。
 
+产品现状评估、优先级与建议验收标准见
+[分析助手后续改进计划（2026-11-23，仅规划，未实施）](docs/ANALYSIS-ASSISTANT-IMPROVEMENT-PLAN-20261123.md)。
+
 ## 开发与验证
 
 安装并运行完整的离线检查：
